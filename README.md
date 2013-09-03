@@ -15,6 +15,11 @@ use of Resources and Serializers.
 Monkful is still very young and has few features. An advantage of this is that
 it's easy to contribute. Contributions are very welcome.
 
+## Installation
+
+Make sure you have MongoDB installed and installed the requirements in
+requirements.txt.
+
 ## A quick example
 
 1. Create your MongoEngine documents:
