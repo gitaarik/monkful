@@ -11,19 +11,54 @@ class Field(object):
             return None
 
 
-class StringField(Field):
+class SingleValueField(Field):
+    """
+    Fields that only have one value.
 
-    def _serialize(self, v):
-        return unicode(v)
+    Will check if the field is set, if so, return the `_value()` of it, else
+    return `None`.
+    """
+
+    def _serialize(self, value):
+        if value:
+            return self._value(value)
+        else:
+            return None
 
 
-class IntField(Field):
+class StringField(SingleValueField):
+    """
+    A field containing a string.
+    """
 
-    def _serialize(self, v):
-        return int(v)
+    def _value(self, value):
+        return unicode(value)
+
+
+class IntField(SingleValueField):
+    """
+    A field containing an integer.
+    """
+
+    def _value(self, value):
+        return int(value)
+
+
+class BooleanField(SingleValueField):
+    """
+    A field containing a boolean.
+    """
+
+    def _value(self, value):
+        return bool(value)
 
 
 class ListField(Field):
+    """
+    A field containing a list of other types.
+
+    Will serialize every item in the list using the provided serializer.
+    """
 
     def __init__(self, serializer):
         """
@@ -31,12 +66,6 @@ class ListField(Field):
         """
         self.sub_serializer = serializer
 
-    def _serialize(self, l):
+    def _serialize(self, field_list):
         # Uses the `sub_serializer` to serialize the items in the list.
-        return [self.sub_serializer().serialize(i) for i in l]
-
-
-class BooleanField(Field):
-
-    def _serialize(self, v):
-        return bool(v)
+        return [self.sub_serializer().serialize(item) for item in field_list]
