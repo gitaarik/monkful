@@ -17,35 +17,35 @@ it's easy to contribute. Contributions are very welcome.
 
 ## A quick example
 
-Create your MongoEngine documents:
+1. Create your MongoEngine documents:
 
-**documents.py**
+    **documents.py**
+    
+        from mongoengine import Document, fields
+    
+        class Post(Document):
+            title = fields.StringField()
+            text = fields.StringField()
 
-    from mongoengine import Document, fields
+2. Create serializers for your documents:
 
-    class Post(Document):
-        title = fields.StringField()
-        text = fields.StringField()
+    **serializers.py**
+    
+        from monkful.serializers import Serializer, fields
+    
+        class PostSerializer(Serializer):
+            title = fields.StringField()
+            text = fields.StringField()
 
-Create serializers for your documents:
-
-**serializers.py**
-
-    from monkful.serializers import Serializer, fields
-
-    class PostSerializer(Serializer):
-        title = fields.StringField()
-        text = fields.StringField()
-
-Create resources for your documents by creating a `MongoEngineResource` object
+3. Create resources for your documents by creating a `MongoEngineResource` object
 and specifying the document and serializer:
 
-**resources.py**
-
-    from monkful.resources import MongoEngineResource
-    from documents import Post
-    from serializers import PostSerializer
-
-    class PostResource(MongoEngineResource):
-        document = Post
-        serializer = PostSerializer
+    **resources.py**
+    
+        from monkful.resources import MongoEngineResource
+        from documents import Post
+        from serializers import PostSerializer
+    
+        class PostResource(MongoEngineResource):
+            document = Post
+            serializer = PostSerializer
