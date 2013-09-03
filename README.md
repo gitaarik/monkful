@@ -1,6 +1,6 @@
 # Monkful
 
-Easily create RESTful API's using Flask and MongoEngine. Inspired by Django
+Easily create RESTful API's for your MongoEngine documents. Inspired by Django
 REST framework.
 
 Monkful combines [Flank-RESTful](http://flask-restful.readthedocs.org/en/latest/)
@@ -13,11 +13,11 @@ use of Resources and Serializers.
 ## Development
 
 Monkful is still very young and has few features. An advantage of this is that
-it's easy to contribute. Contributions are very welcome too.
+it's easy to contribute. Contributions are very welcome.
 
 ## A quick example
 
-Put your MongoEngine documents in `documents.py`:
+Create your MongoEngine documents:
 
 **documents.py**
 
@@ -27,7 +27,7 @@ Put your MongoEngine documents in `documents.py`:
         title = fields.StringField()
         text = fields.StringField()
 
-Create serializers for your documents in `serializers.py`:
+Create serializers for your documents:
 
 **serializers.py**
 
