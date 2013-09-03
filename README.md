@@ -85,9 +85,9 @@ and specifying the document and serializer:
    env is activated:
 
     ```python
-    >>> import requests, json
-    >>> data = {'title': "Hello", 'text': "This is the content!"}
-    >>> requests.put('http://127.0.0.1:5000/posts/', data=json.dumps(data))
+    import requests, json
+    data = {'title': "Hello", 'text': "This is the content!"}
+    requests.put('http://127.0.0.1:5000/posts/', data=json.dumps(data))
     ```
 
 6. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)
