@@ -84,8 +84,10 @@ and specifying the document and serializer:
 5. Post something to your resource. Type this in your python shell when your
    env is activated:
 
-    import requests, json
-    data = {'title': "Hello", 'text': "This is the content!"}
-    requests.put('http://127.0.0.1:5000/posts/', data=json.dumps(data))
+    ```python
+    >>> import requests, json
+    >>> data = {'title': "Hello", 'text': "This is the content!"}
+    >>> requests.put('http://127.0.0.1:5000/posts/', data=json.dumps(data))
+    ```
 
 6. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)
