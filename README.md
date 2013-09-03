@@ -20,49 +20,57 @@ it's easy to contribute. Contributions are very welcome.
 1. Create your MongoEngine documents:
 
     **documents.py**
-    
-        from mongoengine import Document, fields
-    
-        class Post(Document):
-            title = fields.StringField()
-            text = fields.StringField()
+
+    ```python
+    from mongoengine import Document, fields
+
+    class Post(Document):
+        title = fields.StringField()
+        text = fields.StringField()
+    ```
 
 2. Create serializers for your documents:
 
     **serializers.py**
-    
-        from monkful.serializers import Serializer, fields
-    
-        class PostSerializer(Serializer):
-            title = fields.StringField()
-            text = fields.StringField()
+
+    ```python
+    from monkful.serializers import Serializer, fields
+
+    class PostSerializer(Serializer):
+        title = fields.StringField()
+        text = fields.StringField()
+    ```
 
 3. Create resources for your documents by creating a `MongoEngineResource` object
 and specifying the document and serializer:
 
     **resources.py**
-    
-        from monkful.resources import MongoEngineResource
-        from documents import Post
-        from serializers import PostSerializer
-    
-        class PostResource(MongoEngineResource):
-            document = Post
-            serializer = PostSerializer
+
+    ```python
+    from monkful.resources import MongoEngineResource
+    from documents import Post
+    from serializers import PostSerializer
+
+    class PostResource(MongoEngineResource):
+        document = Post
+        serializer = PostSerializer
+    ```
 
 4. Make your resource available:
 
-      **server.py**
-      
-         from flask import Flask
-         from flask.ext import restful
-         from mongoengine import connect
-         from resources import PostResource
-         
-         connect('posts')
-         app = Flask(__name__)
-         api = restful.Api(app)
-         api.add_resource(PostResource, '/posts/')
-         
-         if __name__ == '__main__':
-            app.run(debug=True)
+    **server.py**
+
+    ```python
+    from flask import Flask
+    from flask.ext import restful
+    from mongoengine import connect
+    from resources import PostResource
+
+    connect('posts')
+    app = Flask(__name__)
+    api = restful.Api(app)
+    api.add_resource(PostResource, '/posts/')
+
+    if __name__ == '__main__':
+        app.run(debug=True)
+    ```
