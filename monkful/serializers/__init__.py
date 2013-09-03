@@ -12,8 +12,8 @@ class Serializer(object):
         fields.
         """
         return {
-            f: getattr(self, f).serialize(getattr(document, f))
-            for f in self._fields()
+            field: getattr(self, field).serialize(getattr(document, field))
+            for field in self._fields()
         }
 
     def _fields(self):
