@@ -16,6 +16,15 @@ class Serializer(object):
             for field in self._fields()
         }
 
+    def deserialize(self, data):
+
+        data = {
+            var: getattr(self, var).deserialize(value)
+            for var, value in data.items()
+        }
+
+        return data
+
     def _fields(self):
         """
         Returns the fields on the serializer.

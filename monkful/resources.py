@@ -43,9 +43,12 @@ class MongoEngineResource(restful.Resource):
 
     def _add_document(self, data):
         """
-        Create and save an instance of the document with the provided data.
+        Deserialize the provided data and create and save an instance of the
+        document with this data.
+
         Returns the document serialized by the serializer.
         """
+        data = self.serializer.deserialize(data)
         newdoc = self.document(**data)
         newdoc.save()
         return self.serializer.serialize(newdoc)
