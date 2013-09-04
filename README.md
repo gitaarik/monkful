@@ -3,7 +3,7 @@
 Easily create RESTful API's for your MongoEngine documents. Inspired by Django
 REST framework.
 
-Monkful combines [Flank-RESTful](http://flask-restful.readthedocs.org/en/latest/)
+Monkful combines [Flask-RESTful](http://flask-restful.readthedocs.org/en/latest/)
 and [MongoEngine](http://mongoengine.org/) and provides an easy way to create
 RESTful resources for MongoEngine documents in a Flask project. It's inspired
 by [Django REST framework](http://django-rest-framework.org/)'s Views and
@@ -22,7 +22,11 @@ requirements.txt.
 
 ## A quick example
 
-1. Create your MongoEngine documents:
+Here is a quick example on how you can use Monkful. The magic happens in step
+2 (`serializers.py`) and 3 (`resources.py`). This example is also available for
+download in the `example/` directory.
+
+1. Create the MongoEngine documents:
 
     **documents.py**
 
@@ -34,7 +38,7 @@ requirements.txt.
         text = fields.StringField()
     ```
 
-2. Create serializers for your documents:
+2. Create the Monkful serializers for your documents:
 
     **serializers.py**
 
@@ -46,8 +50,8 @@ requirements.txt.
         text = fields.StringField()
     ```
 
-3. Create resources for your documents by creating a `MongoEngineResource` object
-and specifying the document and serializer:
+3. Create the Monkful resources for your documents by implementing
+   `MongoEngineResource` and specifying the document and serializer:
 
     **resources.py**
 
@@ -90,3 +94,7 @@ and specifying the document and serializer:
     ```
 
 6. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)
+
+These files are also in the `example/` directory. If you clone the project,
+create a virtualenv, install the `requirements.txt` and run `python server.py`
+you can play around with it.
