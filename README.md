@@ -84,7 +84,13 @@ download in the `example/` directory.
         app.run(debug=True)
     ```
 
-5. Post something to your resource. Type this in your python shell when your
+5. Run the server:
+
+    ```bash
+    python server.py
+    ```
+
+6. Post something to your resource. Type this in your python shell when your
    env is activated:
 
     ```python
@@ -93,7 +99,7 @@ download in the `example/` directory.
     requests.put('http://127.0.0.1:5000/posts/', data=json.dumps(data))
     ```
 
-6. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)
+7. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)
 
 These files are also in the `example/` directory. If you clone the project,
 create a virtualenv, install the `requirements.txt` and run `python server.py`
