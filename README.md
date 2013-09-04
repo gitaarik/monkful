@@ -23,8 +23,10 @@ requirements.txt.
 ## A quick example
 
 Here is a quick example on how you can use Monkful. The magic happens in step
-2 (`serializers.py`) and 3 (`resources.py`). This example is also available for
-download in the `example/` directory.
+2 (`serializers.py`) and 3 (`resources.py`). This example is also available in
+the `example/` directory. If you clone the project, create a virtualenv,
+install the `requirements.txt` and run `python server.py` in the `example/`
+directory you can play around with it.
 
 1. Create the MongoEngine documents:
 
@@ -100,7 +102,3 @@ download in the `example/` directory.
     ```
 
 7. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)
-
-These files are also in the `example/` directory. If you clone the project,
-create a virtualenv, install the `requirements.txt` and run `python server.py`
-you can play around with it.
