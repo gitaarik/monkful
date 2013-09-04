@@ -7,8 +7,8 @@ Monkful combines [Flank-RESTful](http://flask-restful.readthedocs.org/en/latest/
 and [MongoEngine](http://mongoengine.org/) and provides an easy way to create
 RESTful resources for MongoEngine documents in a Flask project.
 
-It is inspired by [Django REST framework](http://django-rest-framework.org/)'s
-use of Resources and Serializers.
+It's inspired by [Django REST framework](http://django-rest-framework.org/)'s
+Views and Serializers.
 
 ## Development
 
