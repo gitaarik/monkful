@@ -13,7 +13,7 @@ Views and Serializers.
 ## Development
 
 Monkful is still very young and has few features. An advantage of this is that
-it's easy to contribute. Contributions are very welcome.
+it's easy to contribute. Contributions are very welcome!
 
 ## Installation
 
