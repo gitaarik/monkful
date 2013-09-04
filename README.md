@@ -16,9 +16,9 @@ it's easy to contribute. Contributions are very welcome!
 
 ## Installation
 
+There's no pip yet so you'll have to manually add the code to your project.
 Make sure you have MongoDB installed and installed the requirements in
-requirements.txt. Then include the source code of Monkful in your project
-(as there is no pip package yet).
+requirements.txt.
 
 ## A quick example
 
