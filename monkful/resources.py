@@ -34,7 +34,7 @@ class MongoEngineResource(Resource):
         try:
             data = json.loads(request.data)
         except:
-            abort(400, message='Invalid JSON')
+            abort(400, message="Invalid JSON")
 
         multiple = isinstance(data, list)
         result = self._process_data(data, multiple)
@@ -51,7 +51,7 @@ class MongoEngineResource(Resource):
             result.save()
             response = self.serializer.serialize(result)
 
-        return response
+        return response, 201
 
     def _process_data(self, data, multiple):
         """
