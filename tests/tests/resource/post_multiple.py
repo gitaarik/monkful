@@ -21,6 +21,7 @@ class ResourcePostMultiple(unittest.TestCase):
             {
                 'title': "Test title",
                 'text': "Test text",
+                'published': True,
                 'comments': [
                     {
                         'text': "Test comment"
@@ -33,6 +34,7 @@ class ResourcePostMultiple(unittest.TestCase):
             {
                 'title': "Test title 2",
                 'text': "Test text 2",
+                'published': False,
                 'comments': [
                     {
                         'text': "Test comment 3"
@@ -41,7 +43,7 @@ class ResourcePostMultiple(unittest.TestCase):
                         'text': "Test comment 4"
                     }
                 ]
-            },
+            }
         ]
 
         cls.response = cls.app.post('/posts/', data=json.dumps(cls.data))

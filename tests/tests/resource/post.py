@@ -20,6 +20,7 @@ class ResourcePost(unittest.TestCase):
         cls.data = {
             'title': "Test title",
             'text': "Test text",
+            'published': True,
             'comments': [
                 {
                     'text': "Test comment"

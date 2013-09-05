@@ -9,3 +9,4 @@ class Post(Document):
     title = fields.StringField(unique=True)
     text = fields.StringField()
     comments = fields.ListField(fields.EmbeddedDocumentField(Comment))
+    published = fields.BooleanField()

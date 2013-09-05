@@ -22,6 +22,7 @@ class ResourceGet(unittest.TestCase):
                 {
                     'title': "Test title",
                     'text': "Test text",
+                    'published': True,
                     'comments': [
                         {
                             'text': "Test comment"
