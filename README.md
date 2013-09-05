@@ -46,7 +46,7 @@ directory you can play around with it.
         text = fields.StringField()
     ```
 
-2. Create a Monkful serializer for your document:
+2. Create a **Monkful** serializer for your document:
 
     **serializers.py**
 
@@ -58,7 +58,7 @@ directory you can play around with it.
         text = fields.StringField()
     ```
 
-3. Create a Monkful resource for your document by implementing
+3. Create a **Monkful** resource for your document by implementing
    `MongoEngineResource` and specifying the document and serializer:
 
     **resources.py**
