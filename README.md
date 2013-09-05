@@ -74,7 +74,8 @@ directory you can play around with it.
         serializer = PostSerializer
     ```
 
-4. Make your resource available like a regular Flask-RESTful resource:
+4. Make your resource available like a regular
+   [Flask-RESTful resource](http://flask-restful.readthedocs.org/en/latest/quickstart.html#resourceful-routing):
 
     **server.py**
 
