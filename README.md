@@ -9,6 +9,12 @@ RESTful resources for MongoEngine documents in a Flask project. It's inspired
 by [Django REST framework](http://django-rest-framework.org/)'s Views and
 Serializers (in Monkful **Recources** and Serializers).
 
+## Features
+
+* Easy to set up RESTful API's based on MongoEngine documents
+* Create multiple resources in one HTTP request
+* User friendly errormessages on incorrect HTTP requests
+
 ## Development
 
 Monkful is still very young and has few features. An advantage of this is that
