@@ -5,30 +5,31 @@ from app import server
 from app.documents import Post
 
 
-class ResourcePostUnknownFieldInListItem(unittest.TestCase):
+class ResourcePostDuplicateValue(unittest.TestCase):
     """
-    Test if a HTTP POST request with an unknown field in a list item
-    gives the correct response.
+    Test if a HTTP POST request with a duplicate value for a unique
+    field results in the correct response.
     """
 
     @classmethod
     def setUpClass(cls):
 
+        server.app.debug = True
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
+        # First manually put a post in the DB
+        initial_data = {
+            'title': "Test title",
+            'text': "Test text"
+        }
+
+        Post(**initial_data).save()
+
+        # Then POST an item with the same title (which should be unique)
         data = {
             'title': "Test title",
-            'text': "Test text",
-            'comments': [
-                {
-                    'text': "Test comment",
-                    'unknown_field': "This field doesn't exist"
-                },
-                {
-                    'text': "Test comment 2"
-                }
-            ]
+            'text': "Test text 2"
         }
 
         cls.response = cls.app.post('/posts/', data=json.dumps(data))
@@ -39,9 +40,9 @@ class ResourcePostUnknownFieldInListItem(unittest.TestCase):
 
     def test_status_code(self):
         """
-        Test if the response status code is 400.
+        Test if the response status code is 409.
         """
-        self.assertEqual(self.response.status_code, 400)
+        self.assertEqual(self.response.status_code, 409)
 
     def test_content_type(self):
         """
@@ -61,15 +62,15 @@ class ResourcePostUnknownFieldInListItem(unittest.TestCase):
         except:
             self.fail("Respnose is not valid JSON.")
 
-    def test_error_message(self):
+    def test_content(self):
         """
         Test if the correct error message is in the response.
         """
         data = json.loads(self.response.data)
-        self.assertEqual(data['error_code'], 'unknown_field')
+        self.assertEqual(data['error_code'], 'unique_field_conflict')
 
     def test_documents(self):
         """
-        Test if the documents are still empty.
+        Test if there's still only one document in the DB.
         """
-        self.assertFalse(Post.objects.all())
+        self.assertEqual(Post.objects.count(), 1)

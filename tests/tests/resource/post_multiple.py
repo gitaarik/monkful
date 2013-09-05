@@ -48,7 +48,7 @@ class ResourcePostMultiple(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.drop_database('unittest_monkful')
+        cls.mongo_client.unittest_monkful.post.remove()
 
     def test_status_code(self):
         """

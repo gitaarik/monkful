@@ -17,17 +17,17 @@ class ResourcePostUnknownField(unittest.TestCase):
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
-        cls.data = {
+        data = {
             'title': "Test title",
             'text': "Test text",
             'unknown_field': "This field does not exist on the resource",
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(cls.data))
+        cls.response = cls.app.post('/posts/', data=json.dumps(data))
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.drop_database('unittest_monkful')
+        cls.mongo_client.unittest_monkful.post.remove()
 
     def test_status_code(self):
         """
@@ -58,9 +58,9 @@ class ResourcePostUnknownField(unittest.TestCase):
         Test if the correct error message is in the response.
         """
         data = json.loads(self.response.data)
-        self.assertEqual(data['message'], "There is no field 'unknown_field' on this resource.")
+        self.assertEqual(data['error_code'], 'unknown_field')
 
-    def test_document(self):
+    def test_documents(self):
         """
         Test if the documents are still empty.
         """

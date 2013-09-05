@@ -3,6 +3,7 @@ from post import *
 from post_invalid_json import *
 from post_unknown_field import *
 from post_unknown_field_in_list_item import *
+from post_duplicate_value import *
 from post_multiple import *
 from post_multiple_invalid_json import *
 from post_multiple_unknown_field import *

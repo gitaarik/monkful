@@ -2,6 +2,7 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
+from app.documents import Post
 
 
 class ResourcePostInvalidJson(unittest.TestCase):
@@ -18,7 +19,7 @@ class ResourcePostInvalidJson(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.drop_database('unittest_monkful')
+        cls.mongo_client.unittest_monkful.post.remove()
 
     def test_status_code(self):
         """
@@ -49,4 +50,10 @@ class ResourcePostInvalidJson(unittest.TestCase):
         Test if the correct error message is in the response.
         """
         data = json.loads(self.response.data)
-        self.assertEqual(data['message'], "Invalid JSON")
+        self.assertEqual(data['error_code'], 'invalid_json')
+
+    def test_documents(self):
+        """
+        Test if the documents are still empty.
+        """
+        self.assertFalse(Post.objects.all())

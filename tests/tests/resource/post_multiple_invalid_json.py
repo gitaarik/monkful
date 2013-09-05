@@ -17,7 +17,7 @@ class ResourcePostMultipleInvalidJson(unittest.TestCase):
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
-        cls.data = [
+        data = [
             'this is not good',
             {
                 'title': "Test title 2",
@@ -33,11 +33,11 @@ class ResourcePostMultipleInvalidJson(unittest.TestCase):
             },
         ]
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(cls.data))
+        cls.response = cls.app.post('/posts/', data=json.dumps(data))
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.drop_database('unittest_monkful')
+        cls.mongo_client.unittest_monkful.post.remove()
 
     def test_status_code(self):
         """
@@ -68,9 +68,9 @@ class ResourcePostMultipleInvalidJson(unittest.TestCase):
         Test if the correct error message is in the response.
         """
         data = json.loads(self.response.data)
-        self.assertEqual(data['message'], "Invalid JSON.")
+        self.assertEqual(data['error_code'], 'invalid_json')
 
-    def test_document(self):
+    def test_documents(self):
         """
         Test if the documents are still empty.
         """

@@ -20,14 +20,14 @@ class ResourceGet(unittest.TestCase):
         cls.data = {
             'posts': [
                 {
-                    'title': 'Test title',
-                    'text': 'Test text',
+                    'title': "Test title",
+                    'text': "Test text",
                     'comments': [
                         {
-                            'text': 'Test comment'
+                            'text': "Test comment"
                         },
                         {
-                            'text': 'Test comment 2'
+                            'text': "Test comment 2"
                         }
                     ]
                 }
@@ -41,7 +41,7 @@ class ResourceGet(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.drop_database('unittest_monkful')
+        cls.mongo_client.unittest_monkful.post.remove()
 
     def test_status_code(self):
         """

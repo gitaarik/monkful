@@ -7,8 +7,8 @@ from app.documents import Post
 
 class ResourcePost(unittest.TestCase):
     """
-    Test if a HTTP POST request providing a single object gives the
-    right response and inserts the data in the database.
+    Test if a HTTP POST request gives the right response and inserts the
+    data in the database.
     """
 
     @classmethod
@@ -34,7 +34,7 @@ class ResourcePost(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.drop_database('unittest_monkful')
+        cls.mongo_client.unittest_monkful.post.remove()
 
     def test_status_code(self):
         """

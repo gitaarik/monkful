@@ -1,6 +1,7 @@
 import json
 from flask import request
 from flask.ext.restful import Resource, abort
+from mongoengine.errors import NotUniqueError
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, DataInvalidType
 )
@@ -34,22 +35,22 @@ class MongoEngineResource(Resource):
         try:
             data = json.loads(request.data)
         except:
-            abort(400, message="Invalid JSON")
+            abort(400, message="Invalid JSON", error_code='invalid_json')
 
         multiple = isinstance(data, list)
-        result = self._process_data(data, multiple)
+        doc_data = self._process_data(data, multiple)
 
         if multiple:
 
             response = []
 
-            for document in result:
-                document.save()
+            for document in doc_data:
+                self._save_document(document)
                 response.append(self.serializer.serialize(document))
 
         else:
-            result.save()
-            response = self.serializer.serialize(result)
+            self._save_document(doc_data)
+            response = self.serializer.serialize(doc_data)
 
         return response, 201
 
@@ -91,9 +92,12 @@ class MongoEngineResource(Resource):
 
         except UnknownField, error:
 
-            abort(400, message=
+            message = (
                 "There is no field '{}'{} on this resource."
-                .format(error.fieldname, parent_traceback(error.parents)))
+                .format(error.fieldname, parent_traceback(error.parents))
+            )
+
+            abort(400, message=message, error_code='unknown_field')
 
         except ValueInvalidType, error:
 
@@ -108,7 +112,7 @@ class MongoEngineResource(Resource):
                 )
             )
 
-            abort(400, message=message)
+            abort(400, message=message, error_code='invalid_value_type')
 
         except DataInvalidType, error:
 
@@ -126,11 +130,13 @@ class MongoEngineResource(Resource):
                         json_type(error.data)
                     )
                 )
+                error_code = 'invalid_value_type'
 
             else:
                 message = "Invalid JSON."
+                error_code = 'invalid_json'
 
-            abort(400, message=message)
+            abort(400, message=message, error_code=error_code)
 
         return result
 
@@ -147,3 +153,29 @@ class MongoEngineResource(Resource):
         Will return the created document.
         """
         return self.document(**self.serializer.deserialize(data))
+
+    def _save_document(self, document):
+        """
+        Attempts to save the document.
+
+        Will call `abort(400)` (which will trigger a Bad Request
+        response) with an appropriate message if the document wasn't
+        successfully saved.
+        """
+
+        try:
+            document.save()
+        except NotUniqueError:
+
+            unique_fields = [
+                name
+                for name, field in document._fields.items()
+                if field.unique
+            ]
+
+            message = (
+                "One of the values in the request is a duplicate on a unique "
+                "field. Note that these fields should be unique: '{}'"
+                .format("', '".join(unique_fields))
+            )
+            abort(409, message=message, error_code='unique_field_conflict')

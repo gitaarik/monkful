@@ -6,6 +6,6 @@ class Comment(EmbeddedDocument):
 
 
 class Post(Document):
-    title = fields.StringField()
+    title = fields.StringField(unique=True)
     text = fields.StringField()
     comments = fields.ListField(fields.EmbeddedDocumentField(Comment))
