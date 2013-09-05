@@ -34,7 +34,7 @@ the `example/` directory. If you clone the project, create a virtualenv,
 install the `requirements.txt` and run `python server.py` in the `example/`
 directory you can play around with it.
 
-1. Create the MongoEngine documents:
+1. Create a MongoEngine document:
 
     **documents.py**
 
@@ -46,7 +46,7 @@ directory you can play around with it.
         text = fields.StringField()
     ```
 
-2. Create the Monkful serializers for your documents:
+2. Create a Monkful serializer for your document:
 
     **serializers.py**
 
@@ -58,7 +58,7 @@ directory you can play around with it.
         text = fields.StringField()
     ```
 
-3. Create the Monkful resources for your documents by implementing
+3. Create a Monkful resource for your document by implementing
    `MongoEngineResource` and specifying the document and serializer:
 
     **resources.py**
