@@ -13,7 +13,8 @@ Serializers (in Monkful **Recources** and Serializers).
 
 * Easy to set up RESTful API's based on MongoEngine documents
 * Create multiple resources in one HTTP request
-* User friendly error messages on incorrect HTTP requests
+* Correct HTTP status codes and user friendly error messages on incorrect HTTP
+  requests
 
 ## Development
 
