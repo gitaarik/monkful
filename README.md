@@ -35,7 +35,7 @@ the `example/` directory. If you clone the project, create a virtualenv,
 install the `requirements.txt` and run `python server.py` in the `example/`
 directory you can play around with it.
 
-1. Create a MongoEngine document:
+1. Create a [MongoEngine document](http://docs.mongoengine.org/en/latest/tutorial.html#defining-our-documents):
 
     **documents.py**
 
