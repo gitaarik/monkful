@@ -19,7 +19,10 @@ class MongoEngineResource(Resource):
         """
         Returns a list of serialized MongoEngine document objects.
         """
-        return [self.serializer.serialize(d) for d in self.document.objects]
+        return [self.serializer.serialize(d) for d in self.documents()]
+
+    def documents(self):
+        return self.document.objects
 
     def post(self, *args, **kwargs):
         """
