@@ -17,7 +17,7 @@ class Field(object):
         # If this is a write only field
         self.writeonly = writeonly
 
-    def serialize(self, *args, **kwargs):
+    def serialize(self, value):
         """
         Returns the serialized value of the field.
         If it fails it will return `None`.
@@ -26,9 +26,12 @@ class Field(object):
         if self.writeonly:
             raise SerializeWriteonlyField(self)
 
-        return self._serialize(*args, **kwargs)
+        if value:
+            return self._serialize(value)
+        else:
+            return None
 
-    def deserialize(self, *args, **kwargs):
+    def deserialize(self, value):
         """
         Returns the deserialized value of the field.
         """
@@ -36,40 +39,13 @@ class Field(object):
         if self.readonly:
             raise DeserializeReadonlyField(self)
 
-        return self._deserialize(*args, **kwargs)
-
-
-class SingleValueField(Field):
-    """
-    Fields that only have one value.
-    """
-
-    def _serialize(self, value):
-        """
-        Returns the serialized value of the field.
-
-        Checks if the field is set, if so, return the `_serialize_value()` of
-        it, else return `None`.
-        """
-        if value is not None:
-            return self._serialize_value(value)
-        else:
-            return None
-
-    def _deserialize(self, value):
-        """
-        Returns the deserialized value of the field.
-
-        Checks if the field is set, if so, return the `_deserialize_value()` of
-        it, else return `None`.
-        """
-        if value is not None:
-            return self._deserialize_value(value)
+        if value:
+            return self._deserialize(value)
         else:
             return None
 
 
-class StringField(SingleValueField):
+class StringField(Field):
     """
     A field containing a string.
     """
@@ -77,10 +53,10 @@ class StringField(SingleValueField):
     # The type of value `_deserialize` expects to get
     deserialize_type = unicode
 
-    def _serialize_value(self, value):
+    def _serialize(self, value):
         return value
 
-    def _deserialize_value(self, value):
+    def _deserialize(self, value):
 
         if type(value) is not unicode:
             raise ValueInvalidType(self, value)
@@ -88,7 +64,7 @@ class StringField(SingleValueField):
         return value
 
 
-class IntField(SingleValueField):
+class IntField(Field):
     """
     A field containing an integer.
     """
@@ -96,10 +72,10 @@ class IntField(SingleValueField):
     # The type of value `_deserialize` expects to get
     deserialize_type = int
 
-    def _serialize_value(self, value):
+    def _serialize(self, value):
         return value
 
-    def _deserialize_value(self, value):
+    def _deserialize(self, value):
 
         if type(value) is not int:
             raise ValueInvalidType(self, value)
@@ -107,7 +83,7 @@ class IntField(SingleValueField):
         return value
 
 
-class BooleanField(SingleValueField):
+class BooleanField(Field):
     """
     A field containing a boolean.
     """
@@ -115,10 +91,10 @@ class BooleanField(SingleValueField):
     # The type of value `_deserialize` expects to get
     deserialize_type = bool
 
-    def _serialize_value(self, value):
+    def _serialize(self, value):
         return value
 
-    def _deserialize_value(self, value):
+    def _deserialize(self, value):
 
         if type(value) is not bool:
             raise ValueInvalidType(self, value)
@@ -126,7 +102,7 @@ class BooleanField(SingleValueField):
         return value
 
 
-class DateTimeField(SingleValueField):
+class DateTimeField(Field):
     """
     A field containing a python datetime object.
     """
@@ -134,10 +110,10 @@ class DateTimeField(SingleValueField):
     # The type of value `_deserialize` expects to get
     deserialize_type = unicode
 
-    def _serialize_value(self, value):
+    def _serialize(self, value):
         return value.isoformat()
 
-    def _deserialize_value(self, value):
+    def _deserialize(self, value):
 
         if type(value) is not unicode:
             raise ValueInvalidType(self, value)
@@ -164,6 +140,10 @@ class DocumentField(Field):
         return self.sub_serializer.serialize(data)
 
     def _deserialize(self, data):
+
+        if type(data) is not dict:
+            raise ValueInvalidType(self, data)
+
         return self.sub_serializer.deserialize(data)
 
 
