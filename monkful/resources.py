@@ -10,10 +10,44 @@ from .helpers import json_type
 
 class MongoEngineResource(Resource):
 
+    allowed_methods = None
+    blocked_methods = None
+
     def __init__(self, *args, **kwargs):
         # Instantiate the serializer
         self.serializer = self.serializer()
         super(MongoEngineResource, self).__init__(*args, **kwargs)
+
+    def dispatch_request(self, *args, **kwargs):
+
+        if (self.allowed_methods and
+            request.method.lower() not in self.allowed_methods):
+
+            message = (
+                "HTTP method '{}' not allowed. Only these methods are "
+                "allowed: '{}'"
+                .format(
+                    request.method.upper(),
+                    "', '".join([
+                        method.upper()
+                        for method in self.allowed_methods
+                    ])
+                )
+            )
+
+            abort(403, message=message, error_code='method_not_allowed')
+
+        elif (self.blocked_methods and
+            request.method.lower() in self.blocked_methods):
+
+            message = (
+                "HTTP method '{}' not allowed."
+                .format(request.method.upper())
+            )
+
+            abort(403, message=message, error_code='method_not_allowed')
+
+        return super(MongoEngineResource, self).dispatch_request(self, *args, **kwargs)
 
     def get(self, *args, **kwargs):
         """
