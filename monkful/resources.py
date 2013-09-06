@@ -10,44 +10,10 @@ from .helpers import json_type
 
 class MongoEngineResource(Resource):
 
-    allowed_methods = None
-    blocked_methods = None
-
     def __init__(self, *args, **kwargs):
         # Instantiate the serializer
         self.serializer = self.serializer()
         super(MongoEngineResource, self).__init__(*args, **kwargs)
-
-    def dispatch_request(self, *args, **kwargs):
-
-        if (self.allowed_methods and
-            request.method.lower() not in self.allowed_methods):
-
-            message = (
-                "HTTP method '{}' not allowed. Only these methods are "
-                "allowed: '{}'"
-                .format(
-                    request.method.upper(),
-                    "', '".join([
-                        method.upper()
-                        for method in self.allowed_methods
-                    ])
-                )
-            )
-
-            abort(403, message=message, error_code='method_not_allowed')
-
-        elif (self.blocked_methods and
-            request.method.lower() in self.blocked_methods):
-
-            message = (
-                "HTTP method '{}' not allowed."
-                .format(request.method.upper())
-            )
-
-            abort(403, message=message, error_code='method_not_allowed')
-
-        return super(MongoEngineResource, self).dispatch_request(self, *args, **kwargs)
 
     def get(self, *args, **kwargs):
         """
@@ -69,7 +35,7 @@ class MongoEngineResource(Resource):
         try:
             data = json.loads(request.data)
         except:
-            abort(400, message="Invalid JSON", error_code='invalid_json')
+            abort(400, message="Invalid JSON")
 
         multiple = isinstance(data, list)
         doc_data = self._process_data(data, multiple)
@@ -131,7 +97,7 @@ class MongoEngineResource(Resource):
                 .format(error.fieldname, parent_traceback(error.parents))
             )
 
-            abort(400, message=message, error_code='unknown_field')
+            abort(400, message=message)
 
         except ValueInvalidType, error:
 
@@ -146,7 +112,7 @@ class MongoEngineResource(Resource):
                 )
             )
 
-            abort(400, message=message, error_code='invalid_value_type')
+            abort(400, message=message)
 
         except DataInvalidType, error:
 
@@ -164,13 +130,11 @@ class MongoEngineResource(Resource):
                         json_type(error.data)
                     )
                 )
-                error_code = 'invalid_value_type'
 
             else:
                 message = "Invalid JSON."
-                error_code = 'invalid_json'
 
-            abort(400, message=message, error_code=error_code)
+            abort(400, message=message)
 
         return result
 
@@ -212,4 +176,4 @@ class MongoEngineResource(Resource):
                 "field. Note that these fields should be unique: '{}'"
                 .format("', '".join(unique_fields))
             )
-            abort(409, message=message, error_code='unique_field_conflict')
+            abort(409, message=message)

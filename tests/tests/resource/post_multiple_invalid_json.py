@@ -63,12 +63,12 @@ class ResourcePostMultipleInvalidJson(unittest.TestCase):
         except:
             self.fail("Respnose is not valid JSON.")
 
-    def test_error_message(self):
+    def test_content(self):
         """
-        Test if the correct error message is in the response.
+        Test if the response has a 'message'.
         """
         data = json.loads(self.response.data)
-        self.assertEqual(data['error_code'], 'invalid_json')
+        self.assertTrue('message' in data)
 
     def test_documents(self):
         """

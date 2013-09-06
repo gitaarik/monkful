@@ -12,7 +12,7 @@ Serializers (in Monkful **Recources** and Serializers).
 ## Features
 
 * Easy to set up RESTful API's based on MongoEngine documents
-* Create multiple resources in one HTTP request
+* POST multiple objects in one HTTP request
 * Correct HTTP status codes and user friendly error messages on incorrect HTTP
   requests
 

@@ -57,10 +57,10 @@ class ResourcePostInvalidValueTypeObj(unittest.TestCase):
 
     def test_content(self):
         """
-        Test if the correct error message is in the response.
+        Test if the response has a 'message'.
         """
         data = json.loads(self.response.data)
-        self.assertEqual(data['error_code'], 'invalid_value_type')
+        self.assertTrue('message' in data)
 
     def test_documents(self):
         """
