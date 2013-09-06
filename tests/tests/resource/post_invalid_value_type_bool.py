@@ -5,7 +5,7 @@ from app import server
 from app.documents import Post
 
 
-class ResourcePostInvalidValueTypeArr(unittest.TestCase):
+class ResourcePostInvalidValueTypeBool(unittest.TestCase):
     """
     Test if a HTTP POST request with an invalid value for a specific
     field results in the correct response.

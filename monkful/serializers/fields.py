@@ -26,10 +26,10 @@ class Field(object):
         if self.writeonly:
             raise SerializeWriteonlyField(self)
 
-        if value:
-            return self._serialize(value)
-        else:
+        if value is None:
             return None
+        else:
+            return self._serialize(value)
 
     def deserialize(self, value):
         """
@@ -39,10 +39,10 @@ class Field(object):
         if self.readonly:
             raise DeserializeReadonlyField(self)
 
-        if value:
-            return self._deserialize(value)
-        else:
+        if value is None:
             return None
+        else:
+            return self._deserialize(value)
 
 
 class StringField(Field):
