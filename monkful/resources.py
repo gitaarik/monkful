@@ -51,7 +51,7 @@ class MongoEngineResource(Resource):
             result.save()
             response = self.serializer.serialize(result)
 
-        return response
+        return response, 201
 
     def _process_data(self, data, multiple):
         """
