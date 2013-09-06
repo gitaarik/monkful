@@ -85,4 +85,43 @@ class ValueInvalidType(FieldError):
             )
         )
 
-        super(ValueInvalidType, self).__init__(message, field, *args, **kwargs)
+        super(ValueInvalidType, self).__init__(
+            message, field, *args, **kwargs)
+
+
+class SerializeWriteonlyField(FieldError):
+    """
+    Raised when a writeonly field is attempted to be serialized.
+    """
+
+    def __init__(self, field, *args, **kwargs):
+
+        # The field the error occurred on
+        self.field = field
+
+        message = (
+            "Can't serialize value for field '{}' because it's a writeonly "
+            "field.".format(field.name)
+        )
+
+        super(DeserializeReadonlyField, self).__init__(
+            message, field, *args, **kwargs)
+
+
+class DeserializeReadonlyField(FieldError):
+    """
+    Raised when a readonly field is attempted to be deserialized.
+    """
+
+    def __init__(self, field, *args, **kwargs):
+
+        # The field the error occurred on
+        self.field = field
+
+        message = (
+            "Can't deserialize value for field '{}' because it's a readonly "
+            "field.".format(field.name)
+        )
+
+        super(DeserializeReadonlyField, self).__init__(
+            message, field, *args, **kwargs)

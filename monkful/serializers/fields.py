@@ -1,25 +1,41 @@
 import inspect
 import dateutil.parser
-from .exceptions import UnknownField, ValueInvalidType, DataInvalidType
+from .exceptions import (UnknownField, ValueInvalidType, DataInvalidType,
+    SerializeWriteonlyField, DeserializeReadonlyField)
 
 
 class Field(object):
 
-    def __init__(self):
+    def __init__(self, readonly=False, writeonly=False):
+
         # Name of the field
         self.name = None
+
+        # If this is a read only field
+        self.readonly = readonly
+
+        # If this is a write only field
+        self.writeonly = writeonly
 
     def serialize(self, *args, **kwargs):
         """
         Returns the serialized value of the field.
         If it fails it will return `None`.
         """
+
+        if self.writeonly:
+            raise SerializeWriteonlyField(self)
+
         return self._serialize(*args, **kwargs)
 
     def deserialize(self, *args, **kwargs):
         """
         Returns the deserialized value of the field.
         """
+
+        if self.readonly:
+            raise DeserializeReadonlyField(self)
+
         return self._deserialize(*args, **kwargs)
 
 
@@ -129,6 +145,28 @@ class DateTimeField(SingleValueField):
         return dateutil.parser.parse(value)
 
 
+class DocumentField(Field):
+    """
+    A field containing a document.
+    """
+
+    def __init__(self, sub_serializer, *args, **kwargs):
+
+        self.sub_serializer = sub_serializer
+
+        # Instantiate the `sub_serializer` if it's not yet an instance
+        if inspect.isclass(self.sub_serializer):
+            self.sub_serializer = self.sub_serializer()
+
+        super(DocumentField, self).__init__(*args, **kwargs)
+
+    def _serialize(self, data):
+        return self.sub_serializer.serialize(data)
+
+    def _deserialize(self, data):
+        return self.sub_serializer.deserialize(data)
+
+
 class ListField(Field):
     """
     A field containing a list of other types.
@@ -139,7 +177,7 @@ class ListField(Field):
     # The type of value `_deserialize` expects to get
     deserialize_type = list
 
-    def __init__(self, sub_type):
+    def __init__(self, sub_type, *args, **kwargs):
         """
         Serializes a list of items using the provided `sub_type`. This
         can either be a `Serializer` or a `Field`.
@@ -148,8 +186,11 @@ class ListField(Field):
         self.sub_type = sub_type
 
         # Instantiate the `sub_type` if it's not yet an instance
-        if inspect.isclass(sub_type):
+        if inspect.isclass(self.sub_type):
             self.sub_type = self.sub_type()
+
+
+        super(ListField, self).__init__(*args, **kwargs)
 
     def _serialize(self, field_list):
         # Uses the `sub_serializer` to serialize the items in the list.
@@ -163,6 +204,11 @@ class ListField(Field):
         # Uses the `sub_serializer` to deserialize the items in the list.
         try:
             return [self.sub_type.deserialize(item) for item in field_list]
-        except (UnknownField, ValueInvalidType, DataInvalidType) as error:
+        except (
+            UnknownField,
+            ValueInvalidType,
+            DataInvalidType,
+            DeserializeReadonlyField
+        ) as error:
             error.add_parent(self)
             raise error

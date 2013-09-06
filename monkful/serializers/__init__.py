@@ -22,8 +22,9 @@ class Serializer(object):
         fields.
         """
         return {
-            field: getattr(self, field).serialize(getattr(document, field))
-            for field in self._fields()
+            fieldname: field.serialize(getattr(document, fieldname))
+            for fieldname, field in self._fields().items()
+            if not field.writeonly
         }
 
     def deserialize(self, data):

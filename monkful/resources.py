@@ -3,7 +3,7 @@ from flask import request
 from flask.ext.restful import Resource, abort
 from mongoengine.errors import NotUniqueError
 from .serializers.exceptions import (
-    UnknownField, ValueInvalidType, DataInvalidType
+    UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
 )
 from .helpers import json_type
 
@@ -133,6 +133,18 @@ class MongoEngineResource(Resource):
 
             else:
                 message = "Invalid JSON."
+
+            abort(400, message=message)
+
+        except DeserializeReadonlyField, error:
+
+            message = (
+                "The field '{}'{} is not writable as it is a readonly field."
+                .format(
+                    error.field.name,
+                    parent_traceback(error.parents)
+                )
+            )
 
             abort(400, message=message)
 
