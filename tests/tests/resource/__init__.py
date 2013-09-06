@@ -1,4 +1,5 @@
 from get import *
+from get_method_not_allowed import *
 from post import *
 from post_duplicate_value import *
 from post_invalid_json import *
@@ -7,6 +8,7 @@ from post_invalid_value_type_bool import *
 from post_invalid_value_type_int import *
 from post_invalid_value_type_obj import *
 from post_invalid_value_type_str import *
+from post_method_not_allowed import *
 from post_multiple import *
 from post_multiple_invalid_json import *
 from post_multiple_unknown_field import *

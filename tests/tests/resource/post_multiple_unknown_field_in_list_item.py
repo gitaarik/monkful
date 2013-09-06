@@ -86,4 +86,4 @@ class ResourcePostMultipleUnknownFieldInListItem(unittest.TestCase):
         """
         Test if the documents are still empty.
         """
-        self.assertFalse(Post.objects.all())
+        self.assertEqual(Post.objects.count(), 0)

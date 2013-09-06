@@ -5,27 +5,33 @@ from app import server
 from app.documents import Post
 
 
-class ResourcePostInvalidValueTypeObj(unittest.TestCase):
+class ResourcePostMethodNotAllowed(unittest.TestCase):
     """
-    Test if a HTTP POST request with an invalid value for a specific
-    field results in the correct response.
+    Test if a HTTP POST request to a resource that only allows GET gives the
+    right response.
     """
 
     @classmethod
     def setUpClass(cls):
 
-        server.app.debug = True
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
-        data = {
+        cls.data = {
             'title': "Test title",
-            'text': {
-                'test': "This is not correct"
-            }
+            'text': "Test text",
+            'published': True,
+            'comments': [
+                {
+                    'text': "Test comment"
+                },
+                {
+                    'text': "Test comment 2"
+                }
+            ]
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(data))
+        cls.response = cls.app.post('/posts-readonly/', data=json.dumps(cls.data))
 
     @classmethod
     def tearDownClass(cls):
@@ -33,9 +39,9 @@ class ResourcePostInvalidValueTypeObj(unittest.TestCase):
 
     def test_status_code(self):
         """
-        Test if the response status code is 400.
+        Test if the response status code is 201.
         """
-        self.assertEqual(self.response.status_code, 400)
+        self.assertEqual(self.response.status_code, 403)
 
     def test_content_type(self):
         """
@@ -55,12 +61,12 @@ class ResourcePostInvalidValueTypeObj(unittest.TestCase):
         except:
             self.fail("Respnose is not valid JSON.")
 
-    def test_content(self):
+    def test_error_message(self):
         """
         Test if the correct error message is in the response.
         """
         data = json.loads(self.response.data)
-        self.assertEqual(data['error_code'], 'invalid_value_type')
+        self.assertEqual(data['error_code'], 'method_not_allowed')
 
     def test_documents(self):
         """
