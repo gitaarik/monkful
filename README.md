@@ -193,7 +193,7 @@ Provide the sub serializer as the first argument on the `__init__()` method.
 
 Meant to be used for MongoEngine's `ObjectIdField` fields. This way you can
 access the MongoDB [ObjectId](http://docs.mongodb.org/manual/reference/object-id/).
-This field has `readonly` default to `True`.
+This field has the option `readonly` default to `True`.
 
 #### Global options
 
