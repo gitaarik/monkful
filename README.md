@@ -161,15 +161,17 @@ field.
 <table>
     <tr>
         <th>Monkful field serializer</th>
-        <th>Appropriate for these MongoEngine fields</th>
+        <th>Appropriate for MongoEngine fields</th>
         <th>Arguments</th>
         <th>Options (provided as keyword arguments)</th>
     <tr>
         <td>StringField</td>
         <td>
-            * StringField
-            * URLField
-            * EmailField
+            <ul>
+                <li>StringField</li>
+                <li>URLField</li>
+                <li>EmailField</li>
+            </ul>
         </td>
         <td></td>
         <td></td>
@@ -189,8 +191,10 @@ field.
     <tr>
         <td>DateTimeField</td>
         <td>
-            * DateTimeField
-            * ComplexDateTimeField
+            <ul>
+                <li>DateTimeField</li>
+                <li>ComplexDateTimeField</li>
+            </ul>
         </td>
         <td></td>
         <td></td>
@@ -198,25 +202,33 @@ field.
     <tr>
         <td>DocumentField</td>
         <td>
-            * EmbeddedDocumentField
-            * GenericEmbeddedDocumentField
-            * DictField
-            * MapField
-            * ReferenceField
+            <ul>
+                <li>EmbeddedDocumentField</li>
+                <li>GenericEmbeddedDocumentField</li>
+                <li>DictField</li>
+                <li>MapField</li>
+                <li>ReferenceField</li>
+            </ul>
         </td>
         <td>
-            * sub_serializer - The serializer to use for the object held by the field.
+            <ul>
+                <li>sub_serializer - The serializer to use for the object held by the field.</li>
+            </ul>
         </td>
         <td></td>
     </tr>
     <tr>
         <td>ListField</td>
         <td>
-            * ListField
-            * SortedListField
+            <ul>
+                <li>ListField</li>
+                <li>SortedListField</li>
+            </ul>
         </td>
         <td>
-            * sub_serializer - The serializer to use for the objects in the list.
+            <ul>
+                <li>sub_serializer - The serializer to use for the objects in the list.</li>
+            </ul>
         </td>
         <td></td>
     </tr>
