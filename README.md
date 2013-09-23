@@ -15,6 +15,7 @@ Serializers (in Monkful **Recources** and Serializers).
 * POST multiple objects in one HTTP request
 * Correct HTTP status codes and user friendly error messages on incorrect HTTP
   requests
+* Assign fields as readonly or writeonly
 
 ## Development
 
@@ -110,3 +111,126 @@ directory you can play around with it.
     ```
 
 7. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)
+
+## Documentation
+
+### Serializers
+
+In order to represent the data from your MongoEngine documents in an API, the
+data from the documents should be serialized into a format that can be
+transferred over HTTP. As a format, JSON has become the de facto standard, and
+it's the only format Flask-RESTful currently supports, so that automatically
+makes it the only format Monkful uses too.
+
+As a small example for serialization: Consider you have a `DateTimeField` on a
+MongoEngine document. MongoEngine stores Python `datetime` objects, however,
+you can't include this in a JSON object of course. Besides that, JSON has no
+datetime format of it's own.
+
+In Monkful you specify a serializer on your resource. The serializer is
+responsible for converting the MongoEngine document into a JSON object. On the
+serializer you specify what fields should use what kind of serialization. For
+example, for a MongoEngine `DateTimeField` you would use the Monkful field
+serializer `DateTimeField` (which indeed happens to be the same name). This
+field serializer will convert the python `datetime` object to an
+[ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) string. That string will
+then end up in the JSON object.
+
+When a POST is done on a Monkful resource, it will expect a string in ISO 8601
+format for a field with a `DateTimeField` field serializer. It will then
+**deserialize** this string into a Python `datetime` object before it's
+passed on to MongoEngine.
+
+The idea is that Monkful will provide appropriate serializers for all standard
+MongoEngine fields. Not all standard MongoEngine fields are covered yet, so if
+you miss something, you're very welcome to contribute. If you created custom
+MongoEngine fields, you can create custom Monkful field serializers for them.
+
+#### Field serializers
+
+This is a list of the field serializers Monkful currently supports. You can
+import the fields using `from monkful.serializers import fields` and then use
+for example `my_string_field = fields.StringField()` on your serializer.
+
+The column "Appropriate for these MongoEngine fields" lists some MongoEngine
+fields that this field serializer can be used for, however it's not necessarily
+restricted to this field serializer. It is possible that there are several
+field serializers that can be appropriate to use for a certain MongoEngine
+field.
+
+<table>
+    <tr>
+        <th>Monkful field serializer</th>
+        <th>Appropriate for these MongoEngine fields</th>
+        <th>Arguments</th>
+        <th>Options (provided as keyword arguments)</th>
+    <tr>
+        <td>StringField</td>
+        <td>
+            * StringField
+            * URLField
+            * EmailField
+        </td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>IntField</td>
+        <td>IntField</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>BooleanField</td>
+        <td>BooleanField</td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>DateTimeField</td>
+        <td>
+            * DateTimeField
+            * ComplexDateTimeField
+        </td>
+        <td></td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>DocumentField</td>
+        <td>
+            * EmbeddedDocumentField
+            * GenericEmbeddedDocumentField
+            * DictField
+            * MapField
+            * ReferenceField
+        </td>
+        <td>
+            * sub_serializer - The serializer to use for the object held by the field.
+        </td>
+        <td></td>
+    </tr>
+    <tr>
+        <td>ListField</td>
+        <td>
+            * ListField
+            * SortedListField
+        </td>
+        <td>
+            * sub_serializer - The serializer to use for the objects in the list.
+        </td>
+        <td></td>
+    </tr>
+</table>
+
+##### Global options
+
+These options are available on all field serializers.
+
+* readonly - If set to `True` this field will only be readable. So on a `GET`
+    request it will show up in the response, but if you try to supply the field
+    in a `POST` or `PUT`, it will return an error.
+* writeonly - If set to `True` this field will only be writable. So if you
+    supply this field in a `POST` or `PUT` it will succeed, but the field won't
+    show up in the response (as well as in the response of a `GET` request).
+    This is handy for password fields where you want to be able to update a
+    password but not expose it in the API.
