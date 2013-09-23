@@ -237,7 +237,8 @@ field.
 
 ##### Global options
 
-These options are available on all field serializers.
+These options are available on all field serializers. You can provide these
+options as keyword arguments to the serializer field's `__init__` method.
 
 * readonly - If set to `True` this field will only be readable. So on a `GET`
     request it will show up in the response, but if you try to supply the field
