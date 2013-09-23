@@ -64,15 +64,12 @@ class StringField(Field):
         return value
 
 
-class IdField(Field):
+class ObjectIdField(StringField):
     """
-    A field containing a string.
+    A field containing a MongoDB ObjectId.
+    http://docs.mongodb.org/manual/reference/object-id/
     """
-
     readonly = True
-
-    def _serialize(self, value):
-        return str(value)
 
 
 class IntField(Field):
@@ -184,7 +181,7 @@ class ListField(Field):
         super(ListField, self).__init__(*args, **kwargs)
 
     def _serialize(self, field_list):
-        # Uses the `sub_serializer` to serialize the items in the list.
+        # Uses the `sub_serializer` to serialize the items in the list
         return [self.sub_type.serialize(item) for item in field_list]
 
     def _deserialize(self, field_list):
@@ -192,7 +189,7 @@ class ListField(Field):
         if type(field_list) is not list:
             raise ValueInvalidType(self, field_list)
 
-        # Uses the `sub_serializer` to deserialize the items in the list.
+        # Uses the `sub_serializer` to deserialize the items in the list
         try:
             return [self.sub_type.deserialize(item) for item in field_list]
         except (
@@ -201,5 +198,8 @@ class ListField(Field):
             DataInvalidType,
             DeserializeReadonlyField
         ) as error:
+            # If any of these exceptions occur, we add this field as a
+            # parent in the parent fields chain. This will be used for
+            # debugging info.
             error.add_parent(self)
             raise error

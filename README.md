@@ -152,88 +152,48 @@ This is a list of the field serializers Monkful currently supports. You can
 import the fields using `from monkful.serializers import fields` and then use
 for example `my_string_field = fields.StringField()` on your serializer.
 
-The column "Appropriate for MongoEngine fields" lists some MongoEngine
-fields that this field serializer can be used for, however it's not necessarily
-restricted to this field serializer. It is possible that there are several
-field serializers that can be appropriate to use for a certain MongoEngine
-field.
+##### StringField
 
-<table>
-    <tr>
-        <th>Monkful field serializer</th>
-        <th>Appropriate for MongoEngine fields</th>
-        <th>Arguments</th>
-    <tr>
-        <td>StringField</td>
-        <td>
-            <ul>
-                <li>StringField</li>
-                <li>URLField</li>
-                <li>EmailField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>IntField</td>
-        <td>
-            <ul>
-                <li>IntField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>BooleanField</td>
-        <td>
-            <ul>
-                <li>BooleanField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>DateTimeField</td>
-        <td>
-            <ul>
-                <li>DateTimeField</li>
-                <li>ComplexDateTimeField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>DocumentField</td>
-        <td>
-            <ul>
-                <li>EmbeddedDocumentField</li>
-                <li>GenericEmbeddedDocumentField</li>
-                <li>DictField</li>
-                <li>MapField</li>
-                <li>ReferenceField</li>
-            </ul>
-        </td>
-        <td>
-            <ul>
-                <li>sub_serializer - The serializer to use for the object held by the field.</li>
-            </ul>
-        </td>
-    </tr>
-    <tr>
-        <td>ListField</td>
-        <td>
-            <ul>
-                <li>ListField</li>
-                <li>SortedListField</li>
-            </ul>
-        </td>
-        <td>
-            <ul>
-                <li>sub_serializer - The serializer to use for the objects in the list.</li>
-            </ul>
-        </td>
-    </tr>
-</table>
+Validates that the value for this field is a string on `POST` requests. Can be
+used for MongoEngine's `StringField`, `URLField` and `EmailField`.
+
+##### IntField
+
+Validates that the value for this field is a integer on `POST` requests. Can be
+used for MongoEngine's `IntField`.
+
+##### BooleanField
+
+Serializer for a boolean. Can be used for MongoEngine's `BooleanField`.
+
+##### DateTimeField
+
+Will serialize a python `datetime` field to an ISO 8601 string. On a `POST`
+request it will deserialize an ISO 8601 to a python `datetime` object. Can be
+used for MongoEngine's `DateTimeField` and `ComplexDateTimeField`.
+
+##### DocumentField
+
+Specify a sub serializer for this field. This sub serializer will then be used
+to parse the value of the field. Can be used for MongoEngine's
+`EmbeddedDocumentField`, `GenericEmbeddedDocumentField`, `DictField`,
+`MapField` and `ReferenceField`.
+
+Provide the sub serializer as the first argument on the `__init__()` method.
+
+##### ListField
+
+Treat the value of the field as a list and use a sub serializer to parse the
+value of the list items. Can be used for MongoEngine's `ListField` and
+`SortedListField`.
+
+Provide the sub serializer as the first argument on the `__init__()` method.
+
+##### ObjectIdField
+
+Meant to be used for MongoEngine's `ObjectIdField` fields. This way you can
+access the MongoDB [ObjectId](http://docs.mongodb.org/manual/reference/object-id/).
+This field has `readonly` default to `True`.
 
 ##### Global options
 
