@@ -152,7 +152,7 @@ This is a list of the field serializers Monkful currently supports. You can
 import the fields using `from monkful.serializers import fields` and then use
 for example `my_string_field = fields.StringField()` on your serializer.
 
-The column "Appropriate for these MongoEngine fields" lists some MongoEngine
+The column "Appropriate for MongoEngine fields" lists some MongoEngine
 fields that this field serializer can be used for, however it's not necessarily
 restricted to this field serializer. It is possible that there are several
 field serializers that can be appropriate to use for a certain MongoEngine
