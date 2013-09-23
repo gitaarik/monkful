@@ -195,7 +195,7 @@ Meant to be used for MongoEngine's `ObjectIdField` fields. This way you can
 access the MongoDB [ObjectId](http://docs.mongodb.org/manual/reference/object-id/).
 This field has `readonly` default to `True`.
 
-##### Global options
+#### Global options
 
 These options are available on all field serializers. You can provide these
 options as keyword arguments to the serializer field's `__init__()` method.
