@@ -64,6 +64,17 @@ class StringField(Field):
         return value
 
 
+class IdField(Field):
+    """
+    A field containing a string.
+    """
+
+    readonly = True
+
+    def _serialize(self, value):
+        return str(value)
+
+
 class IntField(Field):
     """
     A field containing an integer.

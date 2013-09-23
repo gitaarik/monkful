@@ -1,7 +1,8 @@
 import json
 from flask import request
 from flask.ext.restful import Resource, abort
-from mongoengine.errors import NotUniqueError
+from mongoengine.errors import NotUniqueError, DoesNotExist
+from mongoengine.base import BaseList, BaseDict
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
 )
@@ -35,10 +36,7 @@ class MongoEngineResource(Resource):
         the serializer.
         """
 
-        try:
-            data = json.loads(request.data)
-        except:
-            abort(400, message="Invalid JSON")
+        data = self._load_from_request(request)
 
         multiple = isinstance(data, list)
         doc_data = self._process_data(data, multiple)
@@ -56,6 +54,55 @@ class MongoEngineResource(Resource):
             response = self.serializer.serialize(doc_data)
 
         return response, 201
+
+    def patch(self, id, *args, **kwargs):
+        """
+        Processes a HTTP PATCH request.
+
+        Expects a JSON object that matches the document's fields or a
+        JSON array of these objects.
+
+        Additionally it needs an id in the URL that indicates which document to update.
+
+        Returns the object/objects that was/were updated, serialized by
+        the serializer.
+        """
+
+        data = self._load_from_request(request)
+
+        try:
+            document = self.document.objects.get(id=id)
+        except DoesNotExist:
+            abort(404, message="Document with id {} does not exist".format(id))
+
+        doc_data = self._update_document(document, data, self.serializer)
+
+        self._save_document(doc_data)
+        response = self.serializer.serialize(doc_data)
+
+        return response, 200
+
+    def delete(self, id, *args, **kwargs):
+        """
+        Processes a HTTP DELETE request.
+        If the document doesn't exist it will continue silently
+        """
+        try:
+            self.document.objects.get(id=id).delete()
+        except DoesNotExist:
+            pass
+
+        return {"details":"Successfully deleted document with id: {}".format(id)}, 200
+
+    def _load_from_request(self, request):
+        try:
+            data = json.loads(request.data)
+            if not data:
+                abort(400, message="No data provided in request.")
+            else:
+                return data
+        except ValueError:
+            abort(400, message="Invalid JSON")
 
     def _process_data(self, data, multiple):
         """
@@ -166,6 +213,46 @@ class MongoEngineResource(Resource):
         Will return the created document.
         """
         return self.document(**self.serializer.deserialize(data))
+
+    def _update_document(self, document, data, serializer):
+        """
+        Loops over the incoming data and tries to set that data on document
+        When it does it will use the serializer provided.
+        Will call itself on sub-data when encountering lists and dicts
+        """
+        for key, value in data.iteritems():
+
+            # When encountering lists or base lists we need to loop over the list
+            # For each value we will call this function again.
+            # The document for this call will be the item on the current document.
+            # The data we want to set there is the value in the list we loop over
+            # The serializer we need is the "sub_type" of the serializer under the 'key' in the current serializer
+            if isinstance(value, BaseList) or isinstance(value, list):
+                for index, list_value in enumerate(value):
+                    self._update_document(document[key][index], list_value, getattr(serializer,key).sub_type)
+
+            # When encountering dicts or base dicts we need loop over all items
+            # For each item we will call this function again.
+            # The document for this call will be the name of the item on the current document (as attribute or key).
+            # The data we want to set there is the value of the item in the dict
+            # The serializer we need is the "sub_serializer" of the serializer under the 'key' in the current serializer
+            elif isinstance(value, BaseDict) or isinstance(value, dict):
+                if hasattr(document, key):
+                    self._update_document(getattr(document,key), value, getattr(serializer,key).sub_serializer)
+                else:
+                    self._update_document(document[key], value, getattr(serializer,key).sub_serializer)
+
+            # When we encounter a base type we will try to set it on the document as an attribute.
+            # We deserialize data before setting it
+            # Read only fields are skipped.
+            else:
+                try:
+                    deserialized = serializer._field(key).deserialize(value)
+                    setattr(document, key, deserialized)
+                except DeserializeReadonlyField:
+                    continue
+
+        return document
 
     def _save_document(self, document):
         """
