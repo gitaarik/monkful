@@ -163,7 +163,6 @@ field.
         <th>Monkful field serializer</th>
         <th>Appropriate for MongoEngine fields</th>
         <th>Arguments</th>
-        <th>Options (provided as keyword arguments)</th>
     <tr>
         <td>StringField</td>
         <td>
@@ -174,7 +173,6 @@ field.
             </ul>
         </td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>IntField</td>
@@ -183,7 +181,6 @@ field.
                 <li>IntField</li>
             </ul>
         </td>
-        <td></td>
         <td></td>
     </tr>
     <tr>
@@ -194,7 +191,6 @@ field.
             </ul>
         </td>
         <td></td>
-        <td></td>
     </tr>
     <tr>
         <td>DateTimeField</td>
@@ -204,7 +200,6 @@ field.
                 <li>ComplexDateTimeField</li>
             </ul>
         </td>
-        <td></td>
         <td></td>
     </tr>
     <tr>
@@ -223,7 +218,6 @@ field.
                 <li>sub_serializer - The serializer to use for the object held by the field.</li>
             </ul>
         </td>
-        <td></td>
     </tr>
     <tr>
         <td>ListField</td>
@@ -238,7 +232,6 @@ field.
                 <li>sub_serializer - The serializer to use for the objects in the list.</li>
             </ul>
         </td>
-        <td></td>
     </tr>
 </table>
 
