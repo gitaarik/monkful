@@ -240,10 +240,10 @@ field.
 These options are available on all field serializers. You can provide these
 options as keyword arguments to the serializer field's `__init__()` method.
 
-* readonly - If set to `True` this field will only be readable. So on a `GET`
+* `readonly` - If set to `True` this field will only be readable. So on a `GET`
     request it will show up in the response, but if you try to supply the field
     in a `POST` or `PUT`, it will return an error.
-* writeonly - If set to `True` this field will only be writable. So if you
+* `writeonly` - If set to `True` this field will only be writable. So if you
     supply this field in a `POST` or `PUT` it will succeed, but the field won't
     show up in the response (as well as in the response of a `GET` request).
     This is handy for password fields where you want to be able to update a
