@@ -178,13 +178,21 @@ field.
     </tr>
     <tr>
         <td>IntField</td>
-        <td>IntField</td>
+        <td>
+            <ul>
+                <li>IntField</li>
+            </ul>
+        </td>
         <td></td>
         <td></td>
     </tr>
     <tr>
         <td>BooleanField</td>
-        <td>BooleanField</td>
+        <td>
+            <ul>
+                <li>BooleanField</li>
+            </ul>
+        </td>
         <td></td>
         <td></td>
     </tr>
