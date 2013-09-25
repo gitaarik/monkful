@@ -64,12 +64,15 @@ class StringField(Field):
         return value
 
 
-class ObjectIdField(StringField):
+class ObjectIdField(Field):
     """
     A field containing a MongoDB ObjectId.
     http://docs.mongodb.org/manual/reference/object-id/
     """
     readonly = True
+
+    def _serialize(self, value):
+        return unicode(value)
 
 
 class IntField(Field):

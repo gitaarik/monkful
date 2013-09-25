@@ -1,8 +1,8 @@
 import json
 from flask import request
 from flask.ext.restful import Resource, abort
+from mongoengine import fields
 from mongoengine.errors import NotUniqueError, DoesNotExist
-from mongoengine.base import BaseList, BaseDict
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
 )
@@ -16,71 +16,152 @@ class MongoEngineResource(Resource):
         self.serializer = self.serializer()
         super(MongoEngineResource, self).__init__(*args, **kwargs)
 
+    def dispatch_request(self, *args, **kwargs):
+        # Call authenticate for each request
+        self.authenticate()
+        return super(MongoEngineResource, self).dispatch_request(*args, **kwargs)
+
+    def authenticate(self):
+        """
+        Placeholder for authenticating requests.
+
+        If you want custom authentication, overwrite this method. If
+        authentication fails, you should call `abort()` yourself (or
+        something else you like).
+        """
+        return
+
     def get(self, *args, **kwargs):
         """
-        Returns a list of serialized MongoEngine document objects.
-        """
-        return [self.serializer.serialize(d) for d in self.documents()]
+        Handles a GET request.
 
-    def documents(self):
+        If `get_data()` returns a queryset, it will return a list of
+        serialized documents from this queryset.
+
+        If `get_data()` returns a document, it will return the
+        serialized document.
+
+        If `get_data()` returns something that evaluates to `False` it
+        will raise a 404.
+        """
+
+        data = self.get_data()
+
+        if not data:
+            abort(404, "Not found")
+        elif type(data) is list:
+            return self.get_list(data)
+        else:
+            return self.get_item(data)
+
+    def get_item(self, document):
+        """
+        Returns the provided MongoEngine document serialized.
+        """
+        return self.serializer.serialize(document)
+
+    def get_list(self, queryset):
+        """
+        Returns a list of serialized documents from the provided
+        MongoEngine queryset.
+        """
+        return [self.serializer.serialize(d) for d in queryset]
+
+    def get_data(self):
+        """
+        Returns the data that should be returned on GET requests.
+
+        The default behaviour is to return all the documents (by
+        returning the MongoEngine queryset). You can overwrite this
+        method to alter this behaviour.
+        """
         return self.document.objects
 
     def post(self, *args, **kwargs):
         """
         Processes a HTTP POST request.
 
-        Expects a JSON object that matches the document's fields or a
+        Expects a JSON object that matches the serializer's fields or a
         JSON array of these objects.
 
-        Returns the object/objects that was/were created, serialized by
-        the serializer.
+        Returns the object/objects that was/were created, serialized
+        into JSON format by the serializer.
         """
 
-        data = self._load_from_request(request)
+        request_data = self._request_data()
 
-        multiple = isinstance(data, list)
-        doc_data = self._process_data(data, multiple)
+        if isinstance(request_data, list):
+            # Process multiple documents
 
-        if multiple:
+            documents = []
+
+            for item in request_data:
+                documents.append(self._process_document(item))
+
+            # If we come here, it means `_process_document()` didn't
+            # `abort()`, so the request data was not malformed, so we
+            # can save the documents now.
 
             response = []
-
-            for document in doc_data:
+            for document in documents:
                 self._save_document(document)
                 response.append(self.serializer.serialize(document))
 
         else:
-            self._save_document(doc_data)
-            response = self.serializer.serialize(doc_data)
+            document = self._process_document(request_data)
+            self._save_document(document)
+            response = self.serializer.serialize(document)
 
         return response, 201
 
-    def patch(self, id, *args, **kwargs):
+    def put(self, *args, **kwargs):
         """
-        Processes a HTTP PATCH request.
+        Processes a HTTP PUT request.
 
-        Expects a JSON object that matches the document's fields or a
-        JSON array of these objects.
-
-        Additionally it needs an id in the URL that indicates which document to update.
-
-        Returns the object/objects that was/were updated, serialized by
-        the serializer.
+        Will call `put_document()` to retreive the document that should
+        be updated. If `put_document()` returns `None` it will create a
+        new document instead of updating one.
         """
 
-        data = self._load_from_request(request)
+        put_document = self.put_document(*args, **kwargs)
 
+        document = self._process_document(
+            self._request_data(),
+            document=put_document
+        )
+        self._save_document(document)
+        response = self.serializer.serialize(document)
+
+        if put_document:
+            status_code = 200
+        else:
+            status_code = 201
+
+        return response, status_code
+
+    def put_document(self, *args, **kwargs):
+        """
+        Returns the document that will be updated on HTTP PUT methods.
+
+        It will have the same parameters that are passed to the regular
+        `put()` method.
+
+        The default behaviour is to get the document based on the id
+        supplied in the URL. This assumes that there is a URL endpoint
+        in the form of `path_to_this_resource/<id>/`. If the id is not
+        provided it will `abort()` with an appropriate error message.
+
+        You can overwrite this method to alter the default behaviour.
+        """
         try:
-            document = self.document.objects.get(id=id)
-        except DoesNotExist:
-            abort(404, message="Document with id {} does not exist".format(id))
-
-        doc_data = self._update_document(document, data, self.serializer)
-
-        self._save_document(doc_data)
-        response = self.serializer.serialize(doc_data)
-
-        return response, 200
+            document_id = kwargs['id']
+        except KeyError:
+            abort(400, message="No id provided")
+        else:
+            try:
+                return self.document.get(id=document_id)
+            except DoesNotExist:
+                abort(404, message="Resource with id '{}' does not exist".format(id))
 
     def delete(self, id, *args, **kwargs):
         """
@@ -92,25 +173,75 @@ class MongoEngineResource(Resource):
         except DoesNotExist:
             pass
 
-        return {"details":"Successfully deleted document with id: {}".format(id)}, 200
+        return {
+            'details': "Successfully deleted document with id: {}".format(id)
+        }
 
-    def _load_from_request(self, request):
+    def _request_data(self):
+        """
+        Returns the data in the HTTP request as a Python dict.
+
+        If the data is not provided or is invalid JSON, it will
+        `abort()` with an appropriate error message.
+        """
         try:
             data = json.loads(request.data)
             if not data:
                 abort(400, message="No data provided in request.")
             else:
-                return data
+                if request.method == 'POST':
+                    return self.process_request_data_post(data)
+                elif request.method == 'PUT':
+                    return self.process_request_data_put(data)
         except ValueError:
             abort(400, message="Invalid JSON")
 
-    def _process_data(self, data, multiple):
+    def process_request_data_post(self, data):
         """
-        Processes the data supplied to a POST or PUT request.
+        Processes the JSON decoded data send by a POST request.
 
-        Will call `abort(400)` (which will trigger a Bad Request
-        response) with an appropriate message if the data doesn't
-        validate.
+        By default nothing happens with the data and it is returned as
+        is. You can however overwrite this method and add validation or
+        change the data before returning it.
+
+        If you add validation you should manually call `abort()` if the
+        validation fails.
+        """
+        return self.process_request_data(data)
+
+    def process_request_data_put(self, data):
+        """
+        Processes the JSON decoded data send by a PUT request.
+
+        By default nothing happens with the data and it is returned as
+        is. You can however overwrite this method and add validation or
+        change the data before returning it.
+
+        If you add validation you should manually call `abort()` if the
+        validation fails.
+        """
+        return self.process_request_data(data)
+
+    def process_request_data(self, data):
+        """
+        Processes the JSON decoded data send by a POST or PUT request.
+
+        By default nothing happens with the data and it is returned as
+        is. You can however overwrite this method and add validation or
+        change the data before returning it.
+
+        If you add validation you should manually call `abort()` if the
+        validation fails.
+        """
+        return data
+
+    def _process_document(self, data, document=None):
+        """
+        Creates a document with the supplied `data`.
+        If `document` is provided, it will update this document instead.
+
+        If the data doesn't validate, it will call `abort()` with an
+        appropriate error message.
         """
 
         def parent_traceback(parents):
@@ -134,12 +265,7 @@ class MongoEngineResource(Resource):
                 return ''
 
         try:
-
-            if multiple:
-                result = self._create_documents(data)
-            else:
-                result = self._create_document(data)
-
+            deserialized_data = self.serializer.deserialize(data)
         except UnknownField, error:
 
             message = (
@@ -198,59 +324,60 @@ class MongoEngineResource(Resource):
 
             abort(400, message=message)
 
-        return result
-
-    def _create_documents(self, data_list):
-        """
-        Creates a document for each item in the provided list.
-        Will return the list of created documents.
-        """
-        return [self._create_document(data) for data in data_list]
+        # If we got here, there wasn't a deserialize error,
+        # so we can safely update/create the document
+        if document:
+            return self._update_document(document, deserialized_data)
+        else:
+            return self._create_document(deserialized_data)
 
     def _create_document(self, data):
         """
         Creates a document with the provided data.
         Will return the created document.
         """
-        return self.document(**self.serializer.deserialize(data))
+        return self.document(**data)
 
-    def _update_document(self, document, data, serializer):
+    def _update_document(self, document, data):
         """
-        Loops over the incoming data and tries to set that data on document
-        When it does it will use the serializer provided.
-        Will call itself on sub-data when encountering lists and dicts
+        Updates the provided `document` with the provided `data`.
+
+        The `data` should be a dict with the fieldnames as keys and the
+        values as values. Also nested documents should be represented
+        this way. Use a regular Python `list` for ListFields.
         """
-        for key, value in data.iteritems():
 
-            # When encountering lists or base lists we need to loop over the list
-            # For each value we will call this function again.
-            # The document for this call will be the item on the current document.
-            # The data we want to set there is the value in the list we loop over
-            # The serializer we need is the "sub_type" of the serializer under the 'key' in the current serializer
-            if isinstance(value, BaseList) or isinstance(value, list):
-                for index, list_value in enumerate(value):
-                    self._update_document(document[key][index], list_value, getattr(serializer,key).sub_type)
+        # There's no easy way to update a MongoEngine document using a
+        # dict, so we have to loop through the `data` dict and update
+        # the document manually. Also see:
+        # http://stackoverflow.com/q/19002469/1248175
 
-            # When encountering dicts or base dicts we need loop over all items
-            # For each item we will call this function again.
-            # The document for this call will be the name of the item on the current document (as attribute or key).
-            # The data we want to set there is the value of the item in the dict
-            # The serializer we need is the "sub_serializer" of the serializer under the 'key' in the current serializer
-            elif isinstance(value, BaseDict) or isinstance(value, dict):
-                if hasattr(document, key):
-                    self._update_document(getattr(document,key), value, getattr(serializer,key).sub_serializer)
-                else:
-                    self._update_document(document[key], value, getattr(serializer,key).sub_serializer)
+        def field_value(field, value):
+            """
+            Returns the value for the field as MongoEngine expects it.
 
-            # When we encounter a base type we will try to set it on the document as an attribute.
-            # We deserialize data before setting it
-            # Read only fields are skipped.
+            Takes `ListField` and `EmbeddedDocumentField` into account.
+            """
+
+            if field.__class__ in (fields.ListField, fields.SortedListField):
+                return [
+                    field_value(field.field, item)
+                    for item in value
+                ]
+            if field.__class__ in (
+                fields.EmbeddedDocumentField,
+                fields.GenericEmbeddedDocumentField,
+                fields.ReferenceField,
+                fields.GenericReferenceField
+            ):
+                return field.document_type(**value)
             else:
-                try:
-                    deserialized = serializer._field(key).deserialize(value)
-                    setattr(document, key, deserialized)
-                except DeserializeReadonlyField:
-                    continue
+                return value
+
+        [setattr(
+            document, key,
+            field_value(document._fields[key], value)
+        ) for key, value in data.items()]
 
         return document
 
