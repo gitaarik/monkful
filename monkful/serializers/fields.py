@@ -64,17 +64,6 @@ class StringField(Field):
         return value
 
 
-class ObjectIdField(Field):
-    """
-    A field containing a MongoDB ObjectId.
-    http://docs.mongodb.org/manual/reference/object-id/
-    """
-    readonly = True
-
-    def _serialize(self, value):
-        return unicode(value)
-
-
 class IntField(Field):
     """
     A field containing an integer.
@@ -206,3 +195,14 @@ class ListField(Field):
             # debugging info.
             error.add_parent(self)
             raise error
+
+
+class ObjectIdField(Field):
+    """
+    A field containing a MongoDB ObjectId.
+    http://docs.mongodb.org/manual/reference/object-id/
+    """
+    readonly = True
+
+    def _serialize(self, value):
+        return unicode(value)
