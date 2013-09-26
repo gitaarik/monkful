@@ -3,6 +3,7 @@ from flask import request
 from flask.ext.restful import Resource, abort
 from mongoengine import fields
 from mongoengine.errors import NotUniqueError, DoesNotExist
+from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
 )
@@ -244,6 +245,23 @@ class MongoEngineResource(Resource):
         appropriate error message.
         """
 
+        data = self._deserialize(data)
+
+        # If we got here, there wasn't a deserialize error,
+        # so we can safely update/create the document
+        if document:
+            return self._update_document(document, data)
+        else:
+            return self._create_document(data)
+
+    def _deserialize(self, data):
+        """
+        Deserializes the data into a document.
+
+        If there were exceptions during the deserialization, it will
+        `abort` with an appropriate error message.
+        """
+
         def parent_traceback(parents):
             """
             Returns a traceback of the parents of the field, so it's
@@ -265,7 +283,9 @@ class MongoEngineResource(Resource):
                 return ''
 
         try:
-            deserialized_data = self.serializer.deserialize(data)
+
+            return self.serializer.deserialize(data)
+
         except UnknownField, error:
 
             message = (
@@ -323,13 +343,6 @@ class MongoEngineResource(Resource):
             )
 
             abort(400, message=message)
-
-        # If we got here, there wasn't a deserialize error,
-        # so we can safely update/create the document
-        if document:
-            return self._update_document(document, deserialized_data)
-        else:
-            return self._create_document(deserialized_data)
 
     def _create_document(self, data):
         """
@@ -394,15 +407,104 @@ class MongoEngineResource(Resource):
             document.save()
         except NotUniqueError:
 
-            unique_fields = [
-                name
-                for name, field in document._fields.items()
-                if field.unique
-            ]
+            unique_fields = self._unique_fields_debug_info(document)
+
+            if unique_fields:
+                debug_info = (
+                    " Note that these fields should be unique: {}."
+                    .format(", ".join(unique_fields))
+                )
+            else:
+                debug_info = ""
 
             message = (
-                "One of the values in the request is a duplicate on a unique "
-                "field. Note that these fields should be unique: '{}'"
-                .format("', '".join(unique_fields))
+                "A unique constraint on a field has been violated.{} If you "
+                "keep having problems, please contact the system administrator."
+                .format(debug_info)
             )
             abort(409, message=message)
+
+    def _unique_fields_debug_info(self, document):
+        """
+        Returns information about unique fields on the resource.
+        This is handy for debugging when a `NotUniqueError` is raised.
+        """
+
+        unique_fields = []
+
+        def check_document(document, serializer=self.serializer, traceback=[]):
+            """
+            Checks if the provided document has fields with unique
+            constraints. If so, it will add them to the `unique_fields`
+            list.
+            """
+
+            for name, field in document._fields.items():
+                # Only give info about fields that are on the serializer
+                if name in serializer._fields().keys():
+                    check_field(name, field, serializer, traceback)
+
+        def check_field(name, field, serializer, traceback):
+            """
+            Checks if the provided field has a unique constraint, if so,
+            it will add it to the `unique_fields` list.
+
+            On encountering list or embedded document kind of fields, it
+            will add their name into a traceback so the error message
+            can show where the field exactly is.
+            """
+
+            if field.unique:
+
+                if traceback:
+
+                    traceback_msg = []
+
+                    for item in traceback:
+                        traceback_msg.append("{}".format(item['name']))
+
+                    traceback_msg.insert(0, field.name)
+
+                    unique_fields.append("'{}'".format(
+                        "' in '".join(traceback_msg)
+                    ))
+
+                else:
+                    unique_fields.append("'{}'".format(name))
+
+            if field.__class__ in (fields.ListField, fields.SortedListField):
+
+                check_field(
+                    name, field.field,
+                    serializer._fields()[name],
+                    traceback
+                )
+
+            elif field.__class__ in (
+                fields.EmbeddedDocumentField,
+                fields.GenericEmbeddedDocumentField,
+                fields.ReferenceField,
+                fields.GenericReferenceField
+            ):
+
+                new_traceback = traceback[:]
+                new_traceback.insert(0, {
+                    'type': 'document',
+                    'name': name,
+                    'field': field
+                })
+
+                if serializer.__class__ == serializer_fields.ListField:
+                    new_serializer = serializer.sub_type
+                else:
+                    new_serializer = serializer.fields()[name]
+
+                check_document(
+                    field.document_type,
+                    new_serializer,
+                    new_traceback
+                )
+
+        check_document(document)
+
+        return unique_fields
