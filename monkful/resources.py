@@ -2,7 +2,7 @@ import json
 from flask import request
 from flask.ext.restful import Resource, abort
 from mongoengine import fields
-from mongoengine.errors import NotUniqueError, DoesNotExist
+from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
@@ -406,105 +406,12 @@ class MongoEngineResource(Resource):
         try:
             document.save()
         except NotUniqueError:
-
-            unique_fields = self._unique_fields_debug_info(document)
-
-            if unique_fields:
-                debug_info = (
-                    " Note that these fields should be unique: {}."
-                    .format(", ".join(unique_fields))
-                )
-            else:
-                debug_info = ""
-
-            message = (
-                "A unique constraint on a field has been violated.{} If you "
-                "keep having problems, please contact the system administrator."
-                .format(debug_info)
+            abort(409, message=
+                "One or more fields are not unique. Please consult the scheme "
+                "of the resource and ensure that you satisfy unique constraints."
             )
-            abort(409, message=message)
-
-    def _unique_fields_debug_info(self, document):
-        """
-        Returns information about unique fields on the resource.
-        This is handy for debugging when a `NotUniqueError` is raised.
-        """
-
-        unique_fields = []
-
-        def check_document(document, serializer=self.serializer, traceback=[]):
-            """
-            Checks if the provided document has fields with unique
-            constraints. If so, it will add them to the `unique_fields`
-            list.
-            """
-
-            for name, field in document._fields.items():
-                # Only give info about fields that are on the serializer
-                if name in serializer._fields().keys():
-                    check_field(name, field, serializer, traceback)
-
-        def check_field(name, field, serializer, traceback):
-            """
-            Checks if the provided field has a unique constraint, if so,
-            it will add it to the `unique_fields` list.
-
-            On encountering list or embedded document kind of fields, it
-            will add their name into a traceback so the error message
-            can show where the field exactly is.
-            """
-
-            if field.unique:
-
-                if traceback:
-
-                    traceback_msg = []
-
-                    for item in traceback:
-                        traceback_msg.append("{}".format(item['name']))
-
-                    traceback_msg.insert(0, field.name)
-
-                    unique_fields.append("'{}'".format(
-                        "' in '".join(traceback_msg)
-                    ))
-
-                else:
-                    unique_fields.append("'{}'".format(name))
-
-            if field.__class__ in (fields.ListField, fields.SortedListField):
-
-                check_field(
-                    name, field.field,
-                    serializer._fields()[name],
-                    traceback
-                )
-
-            elif field.__class__ in (
-                fields.EmbeddedDocumentField,
-                fields.GenericEmbeddedDocumentField,
-                fields.ReferenceField,
-                fields.GenericReferenceField
-            ):
-
-                new_traceback = traceback[:]
-                new_traceback.insert(0, {
-                    'type': 'document',
-                    'name': name,
-                    'field': field
-                })
-
-                if serializer.__class__ == serializer_fields.ListField:
-                    new_serializer = serializer.sub_type
-                else:
-                    new_serializer = serializer.fields()[name]
-
-                check_document(
-                    field.document_type,
-                    new_serializer,
-                    new_traceback
-                )
-
-        check_document(document)
-
-        return unique_fields
+        except ValidationError:
+            abort(400, message=
+                "The request data didn't validate. Please consult the scheme "
+                "of the resource."
+            )
