@@ -49,7 +49,7 @@ class MongoEngineResource(Resource):
         data = self.get_data()
 
         if not data:
-            abort(404, "Not found")
+            abort(404, message="Not found")
         elif type(data) is list:
             return self.get_list(data)
         else:
