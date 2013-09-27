@@ -432,7 +432,7 @@ class MongoEngineResource(Resource):
         fields.
         """
 
-        def filter_errors(errors, serializer):
+        def filter_errors(errors, serializer, traceback=[]):
             """
             Filter `errors` based on the fields defined in `serializer`.
             """
@@ -442,14 +442,27 @@ class MongoEngineResource(Resource):
 
             for fieldname, fielderror in errors.items():
 
+                if fieldname == '__all__':
+
+                    # Ask `allow_document_validation_error()` if the
+                    # Document wide error should be included.
+                    if self.allow_document_validation_error(
+                        fielderror, '.'.join(traceback)
+                    ):
+                        resource_errors[fieldname] = fielderror.message
+
                 # Only include errors of fields that exist in the
                 # serializer.
-                if fieldname in resource_fields:
+                elif fieldname in resource_fields:
+
+                    item_traceback = traceback[:]
+                    item_traceback.append(fieldname)
 
                     fielderror = field_error(
                         resource_fields[fieldname],
                         fielderror,
-                        serializer
+                        serializer,
+                        item_traceback
                     )
 
                     # It could be that `field_error` returns something
@@ -461,7 +474,7 @@ class MongoEngineResource(Resource):
 
             return resource_errors
 
-        def field_error(field, error, serializer):
+        def field_error(field, error, serializer, traceback):
             """
             Returns the filtered `error` for the `field`.
 
@@ -479,7 +492,7 @@ class MongoEngineResource(Resource):
                 for sub_error in error.values():
 
                     sub_error = field_error(
-                        field.sub_field, sub_error, serializer
+                        field.sub_field, sub_error, serializer, traceback
                     )
 
                     if sub_error:
@@ -488,31 +501,49 @@ class MongoEngineResource(Resource):
                 return errors
 
             elif field.__class__ is serializer_fields.DocumentField:
-                return filter_errors(error, field.sub_serializer)
+                return filter_errors(error, field.sub_serializer, traceback)
             else:
                 return error.message
 
         return filter_errors(errors, self.serializer)
 
+    def allow_document_validation_error(self, error, traceback):
+        """
+        This method receives document wide validation errors. It is
+        called by `_filter_validation_errors` which filters out the
+        field errors that don't exist on the resource (serializer).
+
+        Because document wide errors could contain sensitive
+        information, by default this method returns `False`, which
+        means the error won't be shown in the response.
+
+        You can however overwrite this method, inspect the `error` and
+        `traceback` and decide you want to include this error in the
+        response. In this case you would return `True` from this method.
+
+        The traceback is a string of fieldnames seperated by dots. This
+        indicates where the exception was raised.
+        """
+        return False
+
     def save_document(self, document):
         """
         Saves the provided document.
 
-        Will be called by `_save_document()`. If a standard MongoEngine
-        exception occurred it will be catched by `_save_document()`.
-        However, if you made custom validation in your MongoEngine
-        documents, there might be exceptions thrown that are unknown to
-        Monkful. You can overwrite this method and catch these custom
-        exceptions like so:
+        Will be called by `_save_document()`. Monkful will automatically
+        show Validation errors in the response if the fields the
+        validation error is on exists in the resource. However, other
+        validation errors will be raised and will result in a 500
+        response.
+
+        If it's necessary, you can overwrite this method to catch these
+        exceptions, like this:
 
             def save_document(self, *args, **kwargs):
 
                 try:
                     super(MyResource, self).save_document(*args, **kwargs)
-                except MyException:
-                    abort(400, message="Custom error message")
-
-        The standard MongoEngine exceptions will still be catched by
-        `_save_document()` if you don't catch them yourself.
+                except ValidationError, error:
+                    # do something with `error`
         """
         document.save()
