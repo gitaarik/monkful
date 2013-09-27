@@ -415,7 +415,7 @@ class MongoEngineResource(Resource):
             resource_errors = self._filter_validation_errors(error.errors)
 
             if resource_errors:
-                abort(400, message="One or more fields did not validate.", errors=resource_errors)
+                abort(400, message="The data did not validate.", errors=resource_errors)
             else:
                 # If there were no errors on resource fields, it means
                 # the user of the resource can't help it, so it's a
