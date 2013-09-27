@@ -125,3 +125,22 @@ class DeserializeReadonlyField(FieldError):
 
         super(DeserializeReadonlyField, self).__init__(
             message, field, *args, **kwargs)
+
+
+class InvalidFieldSerializer(FieldError):
+    """
+    Raised when an invalid serializer is provided to a ListField.
+    """
+
+    def __init__(self, instance, serializer, *args, **kwargs):
+
+        self.instance = instance
+        self.serializer = serializer
+
+        message = (
+            "Invalid serializer '{}' provided to ListField '{}'. Note that "
+            "ListField expects a FieldSerializer."
+            .format(serializer, instance)
+        )
+
+        super(InvalidFieldSerializer, self).__init__(message, *args, **kwargs)

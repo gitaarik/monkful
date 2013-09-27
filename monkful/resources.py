@@ -3,6 +3,7 @@ from flask import request
 from flask.ext.restful import Resource, abort
 from mongoengine import fields
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
+from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
 )
@@ -403,14 +404,115 @@ class MongoEngineResource(Resource):
         """
 
         try:
-            document.save()
+            self.save_document(document)
         except NotUniqueError:
             abort(409, message=
                 "One or more fields are not unique. Please consult the scheme "
                 "of the resource and ensure that you satisfy unique constraints."
             )
-        except ValidationError:
-            abort(400, message=
-                "The request data didn't validate. Please consult the scheme "
-                "of the resource."
-            )
+        except ValidationError, error:
+
+            resource_errors = self._filter_validation_errors(error.errors)
+
+            if resource_errors:
+                abort(400, message="One or more fields did not validate.", errors=resource_errors)
+            else:
+                # If there were no errors on resource fields, it means
+                # the user of the resource can't help it, so it's a
+                # server error, so we reraise the exception.
+                raise
+
+    def _filter_validation_errors(self, errors):
+        """
+        Filters validation errors from fields that are not defined on
+        the serializers.
+
+        This is for security. Users of the resource are allowed
+        to see errors for fields in the resource, but not the other
+        fields.
+        """
+
+        def filter_errors(errors, serializer):
+            """
+            Filter `errors` based on the fields defined in `serializer`.
+            """
+
+            resource_errors = {}
+            resource_fields = serializer._fields()
+
+            for fieldname, fielderror in errors.items():
+
+                # Only include errors of fields that exist in the
+                # serializer.
+                if fieldname in resource_fields:
+
+                    fielderror = field_error(
+                        resource_fields[fieldname],
+                        fielderror,
+                        serializer
+                    )
+
+                    # It could be that `field_error` returns something
+                    # empty (because all the deeper errors of a
+                    # DocumentField got filtered out), so check before
+                    # we add it to our `resource_errors` dict.
+                    if fielderror:
+                        resource_errors[fieldname] = fielderror
+
+            return resource_errors
+
+        def field_error(field, error, serializer):
+            """
+            Returns the filtered `error` for the `field`.
+
+            If the field is a `ListField` it will call `field_error()`
+            for each item.
+
+            If the field is a `DocumentField` it will call
+            `filter_errors()` with it's `sub_serializer`.
+            """
+
+            if field.__class__ is serializer_fields.ListField:
+
+                errors = []
+
+                for sub_error in error.values():
+
+                    sub_error = field_error(
+                        field.sub_field, sub_error, serializer
+                    )
+
+                    if sub_error:
+                        errors.append(sub_error)
+
+                return errors
+
+            elif field.__class__ is serializer_fields.DocumentField:
+                return filter_errors(error, field.sub_serializer)
+            else:
+                return error.message
+
+        return filter_errors(errors, self.serializer)
+
+    def save_document(self, document):
+        """
+        Saves the provided document.
+
+        Will be called by `_save_document()`. If a standard MongoEngine
+        exception occurred it will be catched by `_save_document()`.
+        However, if you made custom validation in your MongoEngine
+        documents, there might be exceptions thrown that are unknown to
+        Monkful. You can overwrite this method and catch these custom
+        exceptions like so:
+
+            def save_document(self, *args, **kwargs):
+
+                try:
+                    super(MyResource, self).save_document(*args, **kwargs)
+                except MyException:
+                    abort(400, message="Custom error message")
+
+        The standard MongoEngine exceptions will still be catched by
+        `_save_document()` if you don't catch them yourself.
+        """
+        document.save()
