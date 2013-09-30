@@ -1,7 +1,7 @@
 import json
 from flask import request
 from flask.ext.restful import Resource, abort
-from mongoengine import fields
+from mongoengine import fields, Document
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
@@ -20,6 +20,7 @@ class MongoEngineResource(Resource):
     def dispatch_request(self, *args, **kwargs):
         # Call authenticate for each request
         self.authenticate()
+        self.check_request_content_type_header()
         return super(MongoEngineResource, self).dispatch_request(*args, **kwargs)
 
     def authenticate(self):
@@ -31,6 +32,45 @@ class MongoEngineResource(Resource):
         something else you like).
         """
         return
+
+    def check_request_content_type_header(self):
+        """
+        Checks if the content type header in the request is correct.
+        """
+
+        content_type = request.headers['content-type'].split(';')
+        self.check_request_content_type(content_type[0].strip())
+
+        if len(content_type) == 2:
+            self.check_request_charset(content_type[1].strip())
+
+    def check_request_content_type(self, content_type):
+        """
+        Checks if the content type (without the charset) in the request
+        is correct.
+        """
+
+        if (
+            request.method in ('POST', 'PUT') and
+            content_type != 'application/json'
+        ):
+
+            abort(415, message=
+                "Invalid Content-Type header '{}'. This resource "
+                "only supports 'application/json; charset=utf-8'."
+                .format(request.headers['content-type'])
+            )
+
+    def check_request_charset(self, charset):
+        """
+        Checks if the charset in the request is correct.
+        """
+
+        if charset != 'charset=utf-8':
+            abort(415, message=
+                "Invalid charset in Content-Type header '{}'. This resource "
+                "only supports 'application/json; charset=utf-8'."
+            )
 
     def get(self, *args, **kwargs):
         """
@@ -46,14 +86,25 @@ class MongoEngineResource(Resource):
         will raise a 404.
         """
 
-        data = self.get_data()
+        data = self.get_data(*args, **kwargs)
 
         if not data:
             abort(404, message="Not found")
-        elif type(data) is list:
-            return self.get_list(data)
-        else:
+        elif self.is_item(data):
             return self.get_item(data)
+        else:
+            return self.get_list(data)
+
+    def is_item(self, data):
+        """
+        Returns `True` if `data` represents a single document and not a
+        list of documents.
+
+        By default it checks if it is an instance of a MongoEngine
+        `Document`. If you use duck typing this could fail, in that case
+        you could overwrite this method.
+        """
+        return isinstance(data, Document)
 
     def get_item(self, document):
         """
@@ -68,7 +119,7 @@ class MongoEngineResource(Resource):
         """
         return [self.serializer.serialize(d) for d in queryset]
 
-    def get_data(self):
+    def get_data(self, *args, **kwargs):
         """
         Returns the data that should be returned on GET requests.
 
@@ -76,7 +127,13 @@ class MongoEngineResource(Resource):
         returning the MongoEngine queryset). You can overwrite this
         method to alter this behaviour.
         """
-        return self.document.objects
+
+        try:
+            document_id = kwargs['id']
+        except KeyError:
+            return self.document.objects
+        else:
+            return self.document.objects.get(id=document_id)
 
     def post(self, *args, **kwargs):
         """
@@ -185,17 +242,16 @@ class MongoEngineResource(Resource):
         If the data is not provided or is invalid JSON, it will
         `abort()` with an appropriate error message.
         """
-        try:
-            data = json.loads(request.data)
-            if not data:
-                abort(400, message="No data provided in request.")
-            else:
-                if request.method == 'POST':
-                    return self.process_request_data_post(data)
-                elif request.method == 'PUT':
-                    return self.process_request_data_put(data)
-        except ValueError:
-            abort(400, message="Invalid JSON")
+
+        data = request.json
+
+        if not data:
+            abort(400, message="No data provided in request.")
+
+        if request.method == 'POST':
+            return self.process_request_data_post(data)
+        elif request.method == 'PUT':
+            return self.process_request_data_put(data)
 
     def process_request_data_post(self, data):
         """
