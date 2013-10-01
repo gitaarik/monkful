@@ -1,7 +1,7 @@
-import json
 from flask import request
 from flask.ext.restful import Resource, abort
-from mongoengine import fields, Document
+from mongoengine import Document, EmbeddedDocument, fields
+from mongoengine.base import BaseList
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
@@ -421,32 +421,75 @@ class MongoEngineResource(Resource):
         # the document manually. Also see:
         # http://stackoverflow.com/q/19002469/1248175
 
-        def field_value(field, value):
-            """
-            Returns the value for the field as MongoEngine expects it.
+        #if 0:
 
-            Takes `ListField` and `EmbeddedDocumentField` into account.
-            """
+        #    def field_value(field, value):
+        #        """
+        #        Returns the value for the field as MongoEngine expects it.
 
-            if field.__class__ in (fields.ListField, fields.SortedListField):
-                return [
-                    field_value(field.field, item)
-                    for item in value
-                ]
-            if field.__class__ in (
-                fields.EmbeddedDocumentField,
-                fields.GenericEmbeddedDocumentField,
-                fields.ReferenceField,
-                fields.GenericReferenceField
-            ):
-                return field.document_type(**value)
+        #        Takes `ListField` and `EmbeddedDocumentField` into account.
+        #        """
+
+        #        if field.__class__ in (fields.ListField, fields.SortedListField):
+        #            return [
+        #                field_value(field.field, item)
+        #                for item in value
+        #            ]
+        #        if field.__class__ in (
+        #            fields.EmbeddedDocumentField,
+        #            fields.GenericEmbeddedDocumentField,
+        #            fields.ReferenceField,
+        #            fields.GenericReferenceField
+        #        ):
+        #            return field.document_type(**value)
+        #        else:
+        #            return value
+
+        #    [setattr(
+        #        document, key,
+        #        field_value(document._fields[key], value)
+        #    ) for key, value in data.items()]
+
+
+        def create_document(document_type, values):
+            return document_type(**values)
+
+        def field_value(cur_value, new_value):
+
+            if isinstance(cur_value, BaseList):
+
+                new_value = []
+
+                for field_name, field_data in new_value:
+
+                    cur_value = None
+
+                    new_value.append(
+                        field_value(cur_value, field_data)
+                    )
+
+                return new_value
+
+            elif isinstance(cur_value, EmbeddedDocument):
+                return create_document(new_value)
             else:
-                return value
+                return new_value
 
-        [setattr(
-            document, key,
-            field_value(document._fields[key], value)
-        ) for key, value in data.items()]
+
+        def update_document(document, data, serializer):
+
+            for fieldname, field_data in data.items():
+                cur_value = getattr(document, fieldname)
+                new_value = field_value(cur_value, field_data)
+                import ipdb; ipdb.set_trace()
+                setattr(document, fieldname, new_value)
+
+            return document
+
+        import ipdb; ipdb.set_trace()
+        document = update_document(document, data, self.serializer)
+
+        exit()
 
         return document
 
