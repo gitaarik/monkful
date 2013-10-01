@@ -1,7 +1,6 @@
 from flask import request
 from flask.ext.restful import Resource, abort
-from mongoengine import Document, EmbeddedDocument, fields
-from mongoengine.base import BaseList
+from mongoengine import Document, fields
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
