@@ -17,7 +17,7 @@ class Field(object):
         # If this is a write only field
         self.writeonly = kwargs.get('writeonly')
 
-        # If this is the identifier of the field
+        # If this field can act as an identifier for the document
         self.identifier = kwargs.get('identifier')
 
     def serialize(self, value):
