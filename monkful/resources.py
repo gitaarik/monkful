@@ -1,7 +1,7 @@
-import json
 from flask import request
 from flask.ext.restful import Resource, abort
-from mongoengine import fields, Document
+from mongoengine import Document, EmbeddedDocument, fields
+from mongoengine.base import BaseList
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
@@ -416,37 +416,84 @@ class MongoEngineResource(Resource):
         this way. Use a regular Python `list` for ListFields.
         """
 
-        # There's no easy way to update a MongoEngine document using a
-        # dict, so we have to loop through the `data` dict and update
-        # the document manually. Also see:
-        # http://stackoverflow.com/q/19002469/1248175
+        def create_document(document_type, values):
+            return document_type(**values)
 
-        def field_value(field, value):
-            """
-            Returns the value for the field as MongoEngine expects it.
-
-            Takes `ListField` and `EmbeddedDocumentField` into account.
-            """
+        def field_value(field, cur_value, data, serializer, parent=None):
 
             if field.__class__ in (fields.ListField, fields.SortedListField):
-                return [
-                    field_value(field.field, item)
-                    for item in value
-                ]
+
+                new_value = []
+
+                for item in data:
+
+                    field_item = field.field
+                    parent = {
+                        'field': field,
+                        'value': cur_value,
+                        'parent': parent
+                    }
+
+                    new_value.append(
+                        field_value(field_item, None, item, serializer.sub_field, parent)
+                    )
+
+                return new_value
+
             if field.__class__ in (
                 fields.EmbeddedDocumentField,
                 fields.GenericEmbeddedDocumentField,
                 fields.ReferenceField,
                 fields.GenericReferenceField
             ):
-                return field.document_type(**value)
-            else:
-                return value
 
-        [setattr(
-            document, key,
-            field_value(document._fields[key], value)
-        ) for key, value in data.items()]
+                doc_to_update = None
+
+                for serializer_field in serializer.sub_serializer._fields().values():
+
+                    if (
+                        serializer_field.identifier and
+                        parent and
+                        isinstance(parent['field'], fields.ListField) and
+                        parent['value']
+                    ):
+
+                        for item in parent['value']:
+
+                            if (
+                                serializer_field.name in data and
+                                data[serializer_field.name] ==
+                                getattr(parent['value'][0], serializer_field.name)
+                            ):
+                                doc_to_update = item
+                                break
+
+                        break
+
+                if doc_to_update:
+                    return update_document(doc_to_update, data, serializer.sub_serializer)
+                else:
+                    return create_document(field.document_type, data)
+
+            else:
+                return data
+
+
+        def update_document(document, data, serializer):
+
+            for fieldname, field_data in data.items():
+
+                cur_value = getattr(document, fieldname)
+                field = document._fields[fieldname]
+                serializer_field = getattr(serializer, fieldname)
+
+                new_value = field_value(field, cur_value, field_data, serializer_field)
+
+                setattr(document, fieldname, new_value)
+
+            return document
+
+        document = update_document(document, data, self.serializer)
 
         return document
 

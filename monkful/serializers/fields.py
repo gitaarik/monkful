@@ -6,16 +6,19 @@ from .exceptions import (UnknownField, ValueInvalidType, DataInvalidType,
 
 class Field(object):
 
-    def __init__(self, readonly=False, writeonly=False):
+    def __init__(self, **kwargs):
 
         # Name of the field
         self.name = None
 
         # If this is a read only field
-        self.readonly = readonly
+        self.readonly = kwargs.get('readonly')
 
         # If this is a write only field
-        self.writeonly = writeonly
+        self.writeonly = kwargs.get('writeonly')
+
+        # If this field can act as an identifier for the document
+        self.identifier = kwargs.get('identifier')
 
     def serialize(self, value):
         """
