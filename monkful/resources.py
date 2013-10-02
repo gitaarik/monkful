@@ -419,123 +419,158 @@ class MongoEngineResource(Resource):
             return document_type(**values)
 
         def field_value(field, cur_value, data, serializer, parent=None):
+            """
+            Returns the value to use when updating `field` with `data`.
+            """
 
-            if field.__class__ in (fields.ListField, fields.SortedListField):
+            def listfield_value():
+                """
+                Returns the value to use when updating a list-field.
+
+                Will loop through the items in `data` and get the value
+                for the field by calling `field_value()` again. This way
+                we build up a new list with the new field values.
+                """
 
                 new_value = []
 
+                # Loop through the items in the `data`
                 for item in data:
 
+                    # Get the document's field instance for the field
+                    # encapsuled inside the list-field.
                     field_item = field.field
-                    parent = {
+
+                    # Set the parent field so children can get
+                    # information about their parent, as is used in
+                    # `documentfield_value()`.
+                    item_parent = {
                         'field': field,
-                        'value': cur_value,
-                        'parent': parent
+                        'value': cur_value
                     }
 
+                    # Append the value for the field returned by
+                    # `field_value()`.
                     new_value.append(
-                        field_value(field_item, None, item, serializer.sub_field, parent)
+                        field_value(
+                            field_item, None, item,
+                            serializer.sub_field, item_parent
+                        )
                     )
 
                 return new_value
 
+            def documentfield_value():
+                """
+                Returns the value to use when updating a document field.
+
+                Either creates a new document or update a document based
+                on the `identifier` field.
+
+                Will check if the parent field is a ListField, if so,
+                it will check if there's a `identifier` field on the
+                serializer of the document, if so, it will try to find
+                a matching document in the parent ListField (by
+                checking if the `identifier` field matches), if it
+                finds a matching document it will update this document
+                instead of creating a new one.
+                """
+
+                doc_to_update = None
+
+                # Check if there's a parent with a value that's an
+                # instance of `ListField`.
+                if (
+                    parent and parent['value'] and
+                    isinstance(parent['field'], fields.ListField)
+                ):
+
+                    # Loop through fields of the serializer of the document
+                    for serializer_field in (
+                        serializer.sub_serializer._fields().values()
+                    ):
+
+                        # Check if the serializer field has the option
+                        # `identifier` set to `True`.
+                        if serializer_field.identifier:
+
+                            # Check if the `identifier` field is in
+                            # `data`.
+                            if serializer_field.name in data:
+
+                                # Loop through the documents of the
+                                # original list-field.
+                                for document in parent['value']:
+
+                                    # Check if the data matches this
+                                    # document.
+                                    if (
+                                        data[serializer_field.name] ==
+                                        getattr(
+                                            parent['value'][0],
+                                            serializer_field.name
+                                        )
+                                    ):
+                                        # Set the document to update and
+                                        # break out of the loop.
+                                        doc_to_update = document
+                                        break
+
+                            # There can only be one `identifier` field, so
+                            # we break out of this loop here.
+                            break
+
+                # If there's a document to update, update this document,
+                # else create a new one.
+                if doc_to_update:
+                    return update_document(
+                        doc_to_update,
+                        data,
+                        serializer.sub_serializer
+                    )
+                else:
+                    return create_document(field.document_type, data)
+
             if field.__class__ in (
+                fields.ListField,
+                fields.SortedListField
+            ):
+                return listfield_value()
+            elif field.__class__ in (
                 fields.EmbeddedDocumentField,
                 fields.GenericEmbeddedDocumentField,
                 fields.ReferenceField,
                 fields.GenericReferenceField
             ):
-
-                doc_to_update = None
-
-                for serializer_field in serializer.sub_serializer._fields().values():
-
-                    if (
-                        serializer_field.identifier and
-                        parent and
-                        isinstance(parent['field'], fields.ListField) and
-                        parent['value']
-                    ):
-
-                        for item in parent['value']:
-
-                            if (
-                                serializer_field.name in data and
-                                data[serializer_field.name] ==
-                                getattr(parent['value'][0], serializer_field.name)
-                            ):
-                                doc_to_update = item
-                                break
-
-                        break
-
-                if doc_to_update:
-                    return update_document(doc_to_update, data, serializer.sub_serializer)
-                else:
-                    return create_document(field.document_type, data)
-
+                return documentfield_value()
             else:
                 return data
 
-
         def update_document(document, data, serializer):
+            """
+            Updates `document` with `data`.
+            """
 
             for fieldname, field_data in data.items():
 
-                cur_value = getattr(document, fieldname)
+                # The document's field instance
                 field = document._fields[fieldname]
-                serializer_field = getattr(serializer, fieldname)
 
-                new_value = field_value(field, cur_value, field_data, serializer_field)
+                # The current value of the field
+                cur_value = getattr(document, fieldname)
+
+                # The serializer for the field
+                field_serializer = getattr(serializer, fieldname)
+
+                new_value = field_value(
+                    field, cur_value, field_data, field_serializer
+                )
 
                 setattr(document, fieldname, new_value)
 
             return document
 
-        document = update_document(document, data, self.serializer)
-
-
-        #def create_document(document_type, values):
-        #    return document_type(**values)
-
-        #def field_value(cur_value, new_value):
-
-        #    if isinstance(cur_value, BaseList):
-
-        #        new_value = []
-
-        #        for field_name, field_data in new_value:
-
-        #            cur_value = None
-
-        #            new_value.append(
-        #                field_value(cur_value, field_data)
-        #            )
-
-        #        return new_value
-
-        #    elif isinstance(cur_value, EmbeddedDocument):
-        #        return create_document(new_value)
-        #    else:
-        #        return new_value
-
-
-        #def update_document(document, data, serializer):
-
-        #    for fieldname, field_data in data.items():
-        #        cur_value = getattr(document, fieldname)
-        #        new_value = field_value(cur_value, field_data)
-        #        import ipdb; ipdb.set_trace()
-        #        setattr(document, fieldname, new_value)
-
-        #    return document
-
-        #import ipdb; ipdb.set_trace()
-        #document = update_document(document, data, self.serializer)
-
-        #exit()
-
-        return document
+        return update_document(document, data, self.serializer)
 
     def _save_document(self, document):
         """
