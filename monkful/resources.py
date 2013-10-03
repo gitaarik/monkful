@@ -2,11 +2,13 @@ from flask import request
 from flask.ext.restful import Resource, abort
 from mongoengine import Document, fields
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
+
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
 )
 from .helpers import json_type
+from .exceptions import InvalidQueryField
 
 
 class MongoEngineResource(Resource):
@@ -132,6 +134,7 @@ class MongoEngineResource(Resource):
         """
 
         if 'id' in kwargs:
+
             try:
                 return self.document.objects.get(id=kwargs['id'])
             except (DoesNotExist, ValidationError):
@@ -139,14 +142,116 @@ class MongoEngineResource(Resource):
                     "The resource with id '{}' does not exist"
                     .format(kwargs['id'])
                 )
+
         else:
 
-            query = {}
-
             if request.args:
-                query = request.args.to_dict()
+                return self.document.objects.filter(
+                    **self._serialize_query(request.args.to_dict())
+                )
+            else:
+                return self.document.objects
 
-            return self.document.objects.filter(**query)
+    def _serialize_query(self, query):
+        """
+        Validates and serializes the values provided in a search query.
+
+        The idea is that the format for the search query is the same as
+        a MongoEngine query:
+        http://docs.mongoengine.org/en/latest/guide/querying.html
+        However, operators haven't been implemented (yet).
+
+        The values will automatically be deserialized.
+        """
+
+        new_query = {}
+
+        for key, value in query.items():
+            try:
+                new_query[key] = self._deserialize_query_value(
+                    key.split('__'), value
+                )
+            except InvalidQueryField:
+                abort(400, message="Invalid query '{}'".format(key))
+
+        return new_query
+
+    def _deserialize_query_value(self, field_trace, value):
+        """
+        Returns the serialized `value` for the field specified by the
+        `field_trace`.
+
+        The `field_trace` should be a list of steps to the field. If its
+        a field directly on the serializer it can be a list of one item:
+        ['fieldname']
+        But if it's a field inside an embedded document, the list would
+        look like:
+        ['embedded_doc_fieldname', 'fieldname']
+
+        If the field doesn't exist on the serializer, it will raise an
+        `InvalidQueryField` exception.
+        """
+
+        def deserialize_query_value(field_trace, serializer):
+            """
+            Will walk through the `field_trace` by calling itself
+            recursively and return the deserialized value in the end.
+
+            Will raise an `InvalidQueryField` exception when a field
+            isn't found on the serializer.
+            """
+
+            # Pop first field from `field_trace`
+            field = field_trace.pop(0)
+
+            # Check if field exists on serializer
+            if field in serializer._fields():
+
+                # If there are still fields in the `field_trace` go on
+                if field_trace:
+
+                    serializer_field = serializer._field(field)
+
+                    # If the field is a list field with a document
+                    # field inside, recurse with the serializer from
+                    # that document.
+                    if (isinstance(
+                        serializer_field,
+                        serializer_fields.ListField
+                    ) and isinstance(
+                        serializer_field.sub_field,
+                        serializer_fields.DocumentField
+                    )):
+                        return deserialize_query_value(
+                            field_trace,
+                            serializer_field.sub_field.sub_serializer
+                        )
+
+                    # If the field is a document field inside, recurse
+                    # with the serializer from that document.
+                    elif (isinstance(
+                        serializer_field,
+                        serializer_fields.DocumentField
+                    )):
+                        return deserialize_query_value(
+                            field_trace,
+                            serializer_field.sub_serializer
+                        )
+
+                    # Otherwise the trace was too deep and invalid
+                    else:
+                        raise InvalidQueryField(field)
+
+                else:
+                    # If there are no fields in the `field_trace` it
+                    # means we found the serializer for the field, so
+                    # return the deserialized value for it.
+                    return serializer._field(field).deserialize(value)
+
+            else:
+                raise InvalidQueryField(field)
+
+        return deserialize_query_value(field_trace, self.serializer)
 
     def post(self, *args, **kwargs):
         """

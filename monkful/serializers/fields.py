@@ -1,5 +1,6 @@
 import inspect
 import dateutil.parser
+from bson.objectid import ObjectId
 from .exceptions import (UnknownField, ValueInvalidType, DataInvalidType,
     SerializeWriteonlyField, DeserializeReadonlyField, InvalidFieldSerializer)
 
@@ -214,3 +215,6 @@ class ObjectIdField(Field):
 
     def _serialize(self, value):
         return unicode(value)
+
+    def _deserialize(self, value):
+        return ObjectId(value)
