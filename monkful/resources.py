@@ -56,8 +56,8 @@ class MongoEngineResource(Resource):
 
             abort(415, message=
                 "Invalid Content-Type header '{}'. This resource "
-                "only supports 'application/json; charset=utf-8'."
-                .format(request.headers['content-type'])
+                "only supports 'application/json'."
+                .format(content_type)
             )
 
     def check_request_charset(self, charset):
@@ -68,7 +68,8 @@ class MongoEngineResource(Resource):
         if charset != 'charset=utf-8':
             abort(415, message=
                 "Invalid charset in Content-Type header '{}'. This resource "
-                "only supports 'application/json; charset=utf-8'."
+                "only supports 'charset=utf-8'."
+                .format(charset)
             )
 
     def get(self, *args, **kwargs):
