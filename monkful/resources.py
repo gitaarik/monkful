@@ -782,7 +782,12 @@ class MongoEngineResource(Resource):
             `filter_errors()` with it's `sub_serializer`.
             """
 
-            if field.__class__ is serializer_fields.ListField:
+            if (field.__class__ is serializer_fields.ListField and
+                # Listfields can have errors on the field itself or on
+                # the field(s) inside it. If it has the method
+                # `values()` we know it are multiple errors.
+                hasattr(error, 'values')
+            ):
 
                 errors = []
 
