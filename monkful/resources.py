@@ -88,9 +88,7 @@ class MongoEngineResource(Resource):
 
         data = self.get_data(*args, **kwargs)
 
-        if not data:
-            abort(404, message="Not found")
-        elif self.is_item(data):
+        if self.is_item(data):
             return self.get_item(data)
         else:
             return self.get_list(data)
@@ -123,17 +121,32 @@ class MongoEngineResource(Resource):
         """
         Returns the data that should be returned on GET requests.
 
-        The default behaviour is to return all the documents (by
-        returning the MongoEngine queryset). You can overwrite this
-        method to alter this behaviour.
+        The default behaviour is:
+        If there's an `id` parameter in the url variables it will try to
+        find the document with that id and return that document.
+        If there's a search query in the url it will try to find
+        documents with that search query and return those.
+        Else it will return all documents.
+
+        You can overwrite this method to alter this behaviour.
         """
 
-        try:
-            document_id = kwargs['id']
-        except KeyError:
-            return self.document.objects
+        if 'id' in kwargs:
+            try:
+                return self.document.objects.get(id=kwargs['id'])
+            except (DoesNotExist, ValidationError):
+                abort(404, message=
+                    "The resource with id '{}' does not exist"
+                    .format(kwargs['id'])
+                )
         else:
-            return self.document.objects.get(id=document_id)
+
+            query = {}
+
+            if request.args:
+                query = request.args.to_dict()
+
+            return self.document.objects.filter(**query)
 
     def post(self, *args, **kwargs):
         """
