@@ -167,6 +167,11 @@ class MongoEngineResource(Resource):
         new_query = {}
 
         for key, value in query.items():
+
+            # Ignore empty query params
+            if not value:
+                continue
+
             try:
                 new_query[key] = self._deserialize_query_value(
                     key.split('__'), value
