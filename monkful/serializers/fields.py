@@ -119,7 +119,10 @@ class DateTimeField(Field):
         if type(value) is not unicode:
             raise ValueInvalidType(self, value)
 
-        return dateutil.parser.parse(value)
+        if value:
+            return dateutil.parser.parse(value)
+        else:
+            return None
 
 
 class DocumentField(Field):
