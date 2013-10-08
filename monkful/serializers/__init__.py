@@ -42,10 +42,20 @@ class Serializer(object):
         if type(data) is not dict:
             raise DataInvalidType(self, data)
 
-        return {
-            fieldname: self._field(fieldname).deserialize(value)
-            for fieldname, value in data.items()
-        }
+        deserialized_data = {}
+
+        for fieldname, value in data.items():
+
+            field = self._field(fieldname)
+
+            # Ignore read-only fields. For convenience we don't give an
+            # error for this because otherwise clients need to strip out
+            # the read-only fields when they modify data from a GET and
+            # send it back through PUT.
+            if not field.readonly:
+                deserialized_data[fieldname] = field.deserialize(value)
+
+        return deserialized_data
 
     def _field(self, fieldname):
         """

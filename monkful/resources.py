@@ -1,11 +1,12 @@
 from flask import request
 from flask.ext.restful import Resource, abort
+from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
-    UnknownField, ValueInvalidType, DataInvalidType, DeserializeReadonlyField
+    UnknownField, ValueInvalidType, DataInvalidType
 )
 from .helpers import json_type
 from .exceptions import InvalidQueryField
@@ -340,7 +341,7 @@ class MongoEngineResource(Resource):
             abort(400, message="No id provided")
         else:
             try:
-                return self.document.get(id=document_id)
+                return self.document.objects.get(id=document_id)
             except DoesNotExist:
                 abort(404, message="Resource with id '{}' does not exist".format(id))
 
@@ -366,7 +367,10 @@ class MongoEngineResource(Resource):
         `abort()` with an appropriate error message.
         """
 
-        data = request.json
+        try:
+            data = request.json
+        except BadRequest:
+            abort(400, message="Request data is not valid JSON.")
 
         if not data:
             abort(400, message="No data provided in request.")
@@ -508,18 +512,6 @@ class MongoEngineResource(Resource):
 
             else:
                 message = "Invalid JSON."
-
-            abort(400, message=message)
-
-        except DeserializeReadonlyField, error:
-
-            message = (
-                "The field '{}'{} is not writable as it is a readonly field."
-                .format(
-                    error.field.name,
-                    parent_traceback(error.parents)
-                )
-            )
 
             abort(400, message=message)
 
@@ -706,12 +698,25 @@ class MongoEngineResource(Resource):
         """
 
         try:
-            self.save_document(document)
-        except NotUniqueError:
-            abort(409, message=
-                "One or more fields are not unique. Please consult the scheme "
-                "of the resource and ensure that you satisfy unique constraints."
-            )
+            document.save()
+        except NotUniqueError, error:
+
+            if self.allow_not_unique_error(error):
+
+                abort(409, message=
+                    "One or more fields are not unique. Please consult "
+                    "the scheme of the resource and ensure that you "
+                    "satisfy unique constraints.",
+                    error=unicode(error.message)
+                )
+
+            else:
+                abort(409, message=
+                    "One or more fields are not unique. Please consult "
+                    "the scheme of the resource and ensure that you "
+                    "satisfy unique constraints."
+                )
+
         except ValidationError, error:
 
             resource_errors = self._filter_validation_errors(error.errors)
@@ -814,6 +819,19 @@ class MongoEngineResource(Resource):
 
         return filter_errors(errors, self.serializer)
 
+    def allow_not_unique_error(self, error):
+        """
+        This method receives `NotUniqueError` exceptions. It is called
+        by `_save_document()`. This method decides if the MongoDB error
+        message that was raised can be shown in the response of the
+        resource.
+
+        For security reasons, this method returns `False` by default,
+        so the error message won't be shown. If you want to allow this
+        error message you can overwrite this method and return `True`.
+        """
+        return False
+
     def allow_document_validation_error(self, error, traceback):
         """
         This method receives document wide validation errors. It is
@@ -832,25 +850,3 @@ class MongoEngineResource(Resource):
         indicates where the exception was raised.
         """
         return False
-
-    def save_document(self, document):
-        """
-        Saves the provided document.
-
-        Will be called by `_save_document()`. Monkful will automatically
-        show Validation errors in the response if the fields the
-        validation error is on exists in the resource. However, other
-        validation errors will be raised and will result in a 500
-        response.
-
-        If it's necessary, you can overwrite this method to catch these
-        exceptions, like this:
-
-            def save_document(self, *args, **kwargs):
-
-                try:
-                    super(MyResource, self).save_document(*args, **kwargs)
-                except ValidationError, error:
-                    # do something with `error`
-        """
-        document.save()

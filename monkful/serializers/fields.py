@@ -2,7 +2,7 @@ import inspect
 import dateutil.parser
 from bson.objectid import ObjectId
 from .exceptions import (UnknownField, ValueInvalidType, DataInvalidType,
-    SerializeWriteonlyField, DeserializeReadonlyField, InvalidFieldSerializer)
+    SerializeWriteonlyField, InvalidFieldSerializer)
 
 
 class Field(object):
@@ -39,9 +39,6 @@ class Field(object):
         """
         Returns the deserialized value of the field.
         """
-
-        if self.readonly:
-            raise DeserializeReadonlyField(self)
 
         if value is None:
             return None
@@ -196,8 +193,7 @@ class ListField(Field):
         except (
             UnknownField,
             ValueInvalidType,
-            DataInvalidType,
-            DeserializeReadonlyField
+            DataInvalidType
         ) as error:
             # If any of these exceptions occur, we add this field as a
             # parent in the parent fields chain. This will be used for
