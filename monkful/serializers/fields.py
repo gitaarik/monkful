@@ -1,7 +1,7 @@
 import inspect
 import dateutil.parser
 from bson.objectid import ObjectId
-from .exceptions import (UnknownField, ValueInvalidType, DataInvalidType,
+from .exceptions import (FieldError, ValueInvalidType, ValueInvalidFormat,
     SerializeWriteonlyField, InvalidFieldSerializer)
 
 
@@ -11,6 +11,9 @@ class Field(object):
 
         # Name of the field
         self.name = None
+
+        # If this field is a master field
+        self.master = False
 
         # If this is a read only field
         self.readonly = kwargs.get('readonly')
@@ -44,6 +47,27 @@ class Field(object):
             return None
         else:
             return self._deserialize(value)
+
+    def master_field(self):
+        """
+        Returns the master field for this field, if the field itself
+        is the master field, it will return itself.
+
+        The master field is a `Field` instance that is defined as an
+        attribute on the serializer. Non-master fields are fields that
+        are embedded in other fields, for example, in this serializer:
+
+            class MySerializer(Serializer):
+                scores = ListField(IntField())
+
+        The `ListField` instance is a master field and the `IntField`
+        inside of it is an embedded field.
+        """
+
+        if self.master:
+            return self
+        else:
+            return self.parent.master_field()
 
 
 class StringField(Field):
@@ -120,7 +144,12 @@ class DateTimeField(Field):
             raise ValueInvalidType(self, value)
 
         if value:
-            return dateutil.parser.parse(value)
+
+            try:
+                return dateutil.parser.parse(value)
+            except ValueError:
+                raise ValueInvalidFormat(self, 'ISO 8601', value)
+
         else:
             return None
 
@@ -148,7 +177,16 @@ class DocumentField(Field):
         if type(data) is not dict:
             raise ValueInvalidType(self, data)
 
-        return self.sub_serializer.deserialize(data)
+        try:
+            return self.sub_serializer.deserialize(data)
+        except FieldError as error:
+            # If a `FieldError` exception occurs, we add this field as a
+            # parent in the parent fields chain. This will be used for
+            # error messages so that they can show what the parents of
+            # the field are.
+
+            error.add_parent(self.master_field())
+            raise error
 
 
 class ListField(Field):
@@ -191,19 +229,7 @@ class ListField(Field):
             raise ValueInvalidType(self, field_list)
 
         # Uses the `sub_serializer` to deserialize the items in the list
-        try:
-            return [self.sub_field.deserialize(item) for item in field_list]
-        except (
-            UnknownField,
-            ValueInvalidType,
-            DataInvalidType
-        ) as error:
-            # If any of these exceptions occur, we add this field as a
-            # parent in the parent fields chain. This will be used for
-            # debugging info.
-            error.add_parent(self)
-            raise error
-
+        return [self.sub_field.deserialize(item) for item in field_list]
 
 class ObjectIdField(Field):
     """

@@ -8,5 +8,5 @@ class CommentSerializer(Serializer):
 class PostSerializer(Serializer):
     title = fields.StringField()
     text = fields.StringField()
-    comments = fields.ListField(CommentSerializer)
+    comments = fields.ListField(fields.DocumentField(CommentSerializer))
     published = fields.BooleanField()

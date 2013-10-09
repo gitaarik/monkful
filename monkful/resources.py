@@ -6,7 +6,7 @@ from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
-    UnknownField, ValueInvalidType, DataInvalidType
+    UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
 from .helpers import json_type
 from .exceptions import InvalidQueryField
@@ -488,6 +488,21 @@ class MongoEngineResource(Resource):
                     parent_traceback(error.parents),
                     json_type(error.value),
                     json_type(error.field.deserialize_type)
+                )
+            )
+
+            abort(400, message=message)
+
+        except ValueInvalidFormat, error:
+
+            message = (
+                "The value '{}' for field '{}'{} could not be parsed. "
+                "Note that it should be in {} format."
+                .format(
+                    error.value,
+                    error.field.name,
+                    parent_traceback(error.parents),
+                    error.format_name
                 )
             )
 

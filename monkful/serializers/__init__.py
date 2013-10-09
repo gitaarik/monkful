@@ -1,5 +1,5 @@
 import inspect
-from .fields import Field
+from .fields import Field, ListField
 from .exceptions import UnknownField, DataInvalidType
 
 
@@ -10,9 +10,19 @@ class Serializer(object):
         self.field_cache = {}
         self.fields_cache = {}
 
-        # Set names of fields on field instances
+        def init_embedded_fields(field):
+            """
+            Sets the parent field on embedded fields.
+            """
+
+            if isinstance(field, ListField):
+                field.sub_field.parent = field
+                init_embedded_fields(field.sub_field)
+
         for fieldname, field in self._fields().items():
             field.name = fieldname
+            field.master = True
+            init_embedded_fields(field)
 
     def serialize(self, document):
         """

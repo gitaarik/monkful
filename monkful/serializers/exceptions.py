@@ -89,6 +89,33 @@ class ValueInvalidType(FieldError):
             message, field, *args, **kwargs)
 
 
+class ValueInvalidFormat(FieldError):
+    """
+    Raised when an invalid ISO date format is provided for a
+    `DateTimeField`.
+    """
+
+    def __init__(self, field, format_name, value, *args, **kwargs):
+
+        # The field the error occurred on
+        self.field = field
+
+        # The name of the format the value should be in
+        self.format_name = format_name
+
+        # The value that was attempted to be inserted
+        self.value = value
+
+        message = (
+            "The value '{}' for field '{}' could not be parsed. "
+            "Note that it should be in ISO 8601 format."
+            .format(value, field.name)
+        )
+
+        super(ValueInvalidFormat, self).__init__(
+            message, field, *args, **kwargs)
+
+
 class SerializeWriteonlyField(FieldError):
     """
     Raised when a writeonly field is attempted to be serialized.
