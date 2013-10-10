@@ -5,10 +5,10 @@ from app import server
 from app.documents import Article
 
 
-class ResourcePostMultipleUnknownField(unittest.TestCase):
+class ResourcePostMultipleUnknownFieldInEmbeddedDocument(unittest.TestCase):
     """
     Test if a HTTP POST request with multiple objects with an unknown
-    field gives the correct response.
+    field in an embedded document gives the correct response.
     """
 
     @classmethod
@@ -21,11 +21,17 @@ class ResourcePostMultipleUnknownField(unittest.TestCase):
             {
                 'title': "Test title",
                 'text': "Test text",
-                'unknown_field': "This field does not exist on the resource",
+                'top_comment': {
+                    'text': "Test comment",
+                    'unknown_field': "This field doesn't exist"
+                }
             },
             {
                 'title': "Test title 2",
                 'text': "Test text 2",
+                'top_comment': {
+                    'text': "Test comment 3",
+                }
             }
         ]
 
@@ -69,7 +75,8 @@ class ResourcePostMultipleUnknownField(unittest.TestCase):
         """
         self.assertEqual(
             json.loads(self.response.data)['message'],
-            "There is no field 'unknown_field' on this resource."
+            "There is no field 'unknown_field' in 'top_comment' on this "
+            "resource."
         )
 
     def test_documents(self):

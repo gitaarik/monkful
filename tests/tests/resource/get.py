@@ -2,7 +2,7 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
-from app.documents import Post
+from app.documents import Article
 
 
 class ResourceGet(unittest.TestCase):
@@ -18,7 +18,7 @@ class ResourceGet(unittest.TestCase):
 
         # Load some initial data for this test case
         cls.data = {
-            'posts': [
+            'articles': [
                 {
                     'title': "Test title",
                     'text': "Test text",
@@ -30,19 +30,22 @@ class ResourceGet(unittest.TestCase):
                         {
                             'text': "Test comment 2"
                         }
-                    ]
+                    ],
+                    'top_comment': {
+                        'text': "Top comment"
+                    }
                 }
             ]
         }
 
-        for post in cls.data['posts']:
-            Post(**post).save()
+        for article in cls.data['articles']:
+            Article(**article).save()
 
-        cls.response = cls.app.get('/posts/')
+        cls.response = cls.app.get('/articles/')
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.unittest_monkful.post.remove()
+        cls.mongo_client.unittest_monkful.article.remove()
 
     def test_status_code(self):
         """
@@ -73,7 +76,26 @@ class ResourceGet(unittest.TestCase):
         Test if the deserialized response data evaluates back to our
         initial data we inserted in `setUpClass`.
         """
-        self.assertEqual(
-            json.loads(self.response.data),
-            self.data['posts']
-        )
+
+        response_data = json.loads(self.response.data)[0]
+
+        # Remap the response data so that it only has the fields our
+        # orignal data also had.
+        response_data = [{
+            'title': response_data['title'],
+            'text': response_data['text'],
+            'published': response_data['published'],
+            'comments': [
+                {
+                    'text': response_data['comments'][0]['text']
+                },
+                {
+                    'text': response_data['comments'][1]['text']
+                }
+            ],
+            'top_comment': {
+                'text': response_data['top_comment']['text']
+            }
+        }]
+
+        self.assertEqual(response_data, self.data['articles'])

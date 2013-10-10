@@ -342,8 +342,10 @@ class MongoEngineResource(Resource):
         else:
             try:
                 return self.document.objects.get(id=document_id)
-            except DoesNotExist:
-                abort(404, message="Resource with id '{}' does not exist".format(id))
+            except (DoesNotExist, ValidationError):
+                abort(404, message=
+                    "Resource with id '{}' does not exist".format(document_id)
+                )
 
     def delete(self, id, *args, **kwargs):
         """

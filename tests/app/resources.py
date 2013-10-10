@@ -1,8 +1,8 @@
 from monkful.resources import MongoEngineResource
-from documents import Post
-from serializers import PostSerializer
+from documents import Article
+from serializers import ArticleSerializer
 
 
-class PostResource(MongoEngineResource):
-    document = Post
-    serializer = PostSerializer
+class ArticleResource(MongoEngineResource):
+    document = Article
+    serializer = ArticleSerializer

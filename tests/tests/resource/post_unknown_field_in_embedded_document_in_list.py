@@ -2,13 +2,13 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
-from app.documents import Post
+from app.documents import Article
 
 
-class ResourcePostMultipleUnknownFieldInListItem(unittest.TestCase):
+class ResourcePostUnknownFieldInEmbeddedDocumentInList(unittest.TestCase):
     """
-    Test if a HTTP POST request with multiple objects with an unknown
-    field in a list item gives the correct response.
+    Test if a HTTP POST request with an unknown field in an embedded
+    document in a list field gives the correct response.
     """
 
     @classmethod
@@ -17,43 +17,29 @@ class ResourcePostMultipleUnknownFieldInListItem(unittest.TestCase):
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
-        data = [
-            {
-                'title': "Test title",
-                'text': "Test text",
-                'comments': [
-                    {
-                        'text': "Test comment",
-                        'unknown_field': "This field doesn't exist"
-                    },
-                    {
-                        'text': "Test comment 2"
-                    }
-                ]
-            },
-            {
-                'title': "Test title 2",
-                'text': "Test text 2",
-                'comments': [
-                    {
-                        'text': "Test comment 3",
-                    },
-                    {
-                        'text': "Test comment 4"
-                    }
-                ]
-            }
-        ]
+        data = {
+            'title': "Test title",
+            'text': "Test text",
+            'comments': [
+                {
+                    'text': "Test comment",
+                    'unknown_field': "This field doesn't exist"
+                },
+                {
+                    'text': "Test comment 2"
+                }
+            ]
+        }
 
         cls.response = cls.app.post(
-            '/posts/',
+            '/articles/',
             headers={'content-type': 'application/json'},
             data=json.dumps(data)
         )
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.unittest_monkful.post.remove()
+        cls.mongo_client.unittest_monkful.article.remove()
 
     def test_status_code(self):
         """
@@ -83,11 +69,13 @@ class ResourcePostMultipleUnknownFieldInListItem(unittest.TestCase):
         """
         Test if the response has a 'message'.
         """
-        data = json.loads(self.response.data)
-        self.assertTrue('message' in data)
+        self.assertEqual(
+            json.loads(self.response.data)['message'],
+            "There is no field 'unknown_field' in 'comments' on this resource."
+        )
 
     def test_documents(self):
         """
         Test if the documents are still empty.
         """
-        self.assertEqual(Post.objects.count(), 0)
+        self.assertEqual(Article.objects.count(), 0)

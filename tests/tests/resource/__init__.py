@@ -10,6 +10,10 @@ from post_invalid_value_type_str import *
 from post_multiple import *
 from post_multiple_invalid_json import *
 from post_multiple_unknown_field import *
-from post_multiple_unknown_field_in_list_item import *
+from post_multiple_unknown_field_in_embedded_document import *
+from post_multiple_unknown_field_in_embedded_document_in_list import *
 from post_unknown_field import *
-from post_unknown_field_in_list_item import *
+from post_unknown_field_in_embedded_document import *
+from post_unknown_field_in_embedded_document_in_list import *
+from put import *
+from put_identifier_field import *

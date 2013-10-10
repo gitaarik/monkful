@@ -2,13 +2,13 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
-from app.documents import Article
+from app.documents import Article, Comment
 
 
-class ResourcePost(unittest.TestCase):
+class ResourcePut(unittest.TestCase):
     """
-    Test if a HTTP POST request gives the right response and inserts the
-    data in the database.
+    Test if a HTTP PUT that updates a resource gives the right response
+    and updates the data in the database.
     """
 
     @classmethod
@@ -17,27 +17,40 @@ class ResourcePost(unittest.TestCase):
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
-        cls.data = {
-            'title': "Test title",
-            'text': "Test text",
+        cls.data_old = {
+            'title': "Test title old",
+            'text': "Test text old",
             'published': True,
             'comments': [
-                {
-                    'text': "Test comment"
-                },
-                {
-                    'text': "Test comment 2"
-                }
+                Comment(text="Test comment old"),
+                Comment(text="Test comment old 2"),
+
+                # Test to see if this third comment gets removed on
+                # update
+                Comment(text="Test comment old 3"),
+            ],
+            'top_comment': Comment(text="Top comment old")
+        }
+
+        cls.data_new = {
+            'title': "Test title new",
+            'text': "Test text new",
+            'published': False,
+            'comments': [
+                { 'text': "Test comment new" },
+                { 'text': "Test comment new 2" }
             ],
             'top_comment': {
-                'text': "Top comment"
+                'text': "Top comment new"
             }
         }
 
-        cls.response = cls.app.post(
-            '/articles/',
+        article = Article(**cls.data_old).save()
+
+        cls.response = cls.app.put(
+            '/articles/{}/'.format(unicode(article['id'])),
             headers={'content-type': 'application/json'},
-            data=json.dumps(cls.data)
+            data=json.dumps(cls.data_new)
         )
 
     @classmethod
@@ -46,9 +59,9 @@ class ResourcePost(unittest.TestCase):
 
     def test_status_code(self):
         """
-        Test if the response status code is 201.
+        Test if the response status code is 200.
         """
-        self.assertEqual(self.response.status_code, 201)
+        self.assertEqual(self.response.status_code, 200)
 
     def test_content_type(self):
         """
@@ -75,9 +88,6 @@ class ResourcePost(unittest.TestCase):
         """
 
         response_data = json.loads(self.response.data)
-
-        # Remap the response data so that it only has the fields our
-        # orignal data also had.
         response_data = {
             'title': response_data['title'],
             'text': response_data['text'],
@@ -95,7 +105,7 @@ class ResourcePost(unittest.TestCase):
             }
         }
 
-        self.assertEqual(response_data, self.data)
+        self.assertEqual(response_data, self.data_new)
 
     def test_documents(self):
         """
@@ -104,13 +114,17 @@ class ResourcePost(unittest.TestCase):
 
         article = Article.objects[0]
 
-        self.assertEqual(article.title, self.data['title'])
-        self.assertEqual(article.text, self.data['text'])
+        self.assertEqual(article.title, self.data_new['title'])
+        self.assertEqual(article.text, self.data_new['text'])
         self.assertEqual(
             article.comments[0].text,
-            self.data['comments'][0]['text']
+            self.data_new['comments'][0]['text']
         )
         self.assertEqual(
             article.comments[1].text,
-            self.data['comments'][1]['text']
+            self.data_new['comments'][1]['text']
         )
+
+        # The complete `comments` field should've been overwritten so
+        # there should be only two comments instead of 3.
+        self.assertEqual(len(article.comments), 2)

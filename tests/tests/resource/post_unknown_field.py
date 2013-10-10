@@ -2,7 +2,7 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
-from app.documents import Post
+from app.documents import Article
 
 
 class ResourcePostUnknownField(unittest.TestCase):
@@ -24,14 +24,14 @@ class ResourcePostUnknownField(unittest.TestCase):
         }
 
         cls.response = cls.app.post(
-            '/posts/',
+            '/articles/',
             headers={'content-type': 'application/json'},
             data=json.dumps(data)
         )
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.unittest_monkful.post.remove()
+        cls.mongo_client.unittest_monkful.article.remove()
 
     def test_status_code(self):
         """
@@ -61,11 +61,13 @@ class ResourcePostUnknownField(unittest.TestCase):
         """
         Test if the response has a 'message'.
         """
-        data = json.loads(self.response.data)
-        self.assertTrue('message' in data)
+        self.assertEqual(
+            json.loads(self.response.data)['message'],
+            "There is no field 'unknown_field' on this resource."
+        )
 
     def test_documents(self):
         """
         Test if the documents are still empty.
         """
-        self.assertEqual(Post.objects.count(), 0)
+        self.assertEqual(Article.objects.count(), 0)
