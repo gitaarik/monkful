@@ -46,7 +46,11 @@ class ResourcePostMultiple(unittest.TestCase):
             }
         ]
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(cls.data))
+        cls.response = cls.app.post(
+            '/posts/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(cls.data)
+        )
 
     @classmethod
     def tearDownClass(cls):

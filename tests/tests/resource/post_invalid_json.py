@@ -15,7 +15,11 @@ class ResourcePostInvalidJson(unittest.TestCase):
     def setUpClass(cls):
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
-        cls.response = cls.app.post('/posts/', data='thisisnojson')
+        cls.response = cls.app.post(
+            '/posts/',
+            headers={'content-type': 'application/json'},
+            data='thisisnojson'
+        )
 
     @classmethod
     def tearDownClass(cls):

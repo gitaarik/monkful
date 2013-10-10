@@ -24,7 +24,11 @@ class ResourcePostInvalidValueTypeStr(unittest.TestCase):
             'published': "This should be a Boolean"
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(data))
+        cls.response = cls.app.post(
+            '/posts/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(data)
+        )
 
     @classmethod
     def tearDownClass(cls):

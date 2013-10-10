@@ -23,7 +23,11 @@ class ResourcePostUnknownField(unittest.TestCase):
             'unknown_field': "This field does not exist on the resource",
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(data))
+        cls.response = cls.app.post(
+            '/posts/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(data)
+        )
 
     @classmethod
     def tearDownClass(cls):

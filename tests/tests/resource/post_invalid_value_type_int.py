@@ -23,7 +23,11 @@ class ResourcePostInvalidValueTypeInt(unittest.TestCase):
             'text': 123124 # should actually be of type 'String'
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(data))
+        cls.response = cls.app.post(
+            '/posts/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(data)
+        )
 
     @classmethod
     def tearDownClass(cls):

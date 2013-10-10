@@ -89,7 +89,7 @@ directory you can play around with it.
     from resources import PostResource
 
     connect('posts')
-    app = Flask(__name__)
+    app = Flask('myproject')
     api = restful.Api(app)
     api.add_resource(PostResource, '/posts/')
 
