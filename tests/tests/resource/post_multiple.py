@@ -1,3 +1,4 @@
+import copy
 import unittest
 import json
 from datetime import datetime
@@ -29,11 +30,19 @@ class ResourcePostMultiple(unittest.TestCase):
                     {
                         'text': "Test comment",
 
+                        # Test if this writeonly field will be inserted but
+                        # not exposed in the resourse.
+                        'email': 'test@example.com',
+
                         # Test if this readonly field will be ignored
                         'date': datetime(2010, 6, 5, 4, 3, 2).isoformat()
                     },
                     {
                         'text': "Test comment 2",
+
+                        # Test if this writeonly field will be inserted but
+                        # not exposed in the resourse.
+                        'email': 'test2@example.com',
 
                         # Test if this readonly field will be ignored
                         'date': datetime(2010, 5, 4, 3, 2, 1).isoformat()
@@ -53,11 +62,19 @@ class ResourcePostMultiple(unittest.TestCase):
                     {
                         'text': "Test comment 3",
 
+                        # Test if this writeonly field will be inserted but
+                        # not exposed in the resourse.
+                        'email': 'test3@example.com',
+
                         # Test if this readonly field will be ignored
                         'date': datetime(2010, 4, 3, 2, 1, 2).isoformat()
                     },
                     {
                         'text': "Test comment 4",
+
+                        # Test if this writeonly field will be inserted but
+                        # not exposed in the resourse.
+                        'email': 'test4@example.com',
 
                         # Test if this readonly field will be ignored
                         'date': datetime(2010, 3, 2, 1, 2, 3).isoformat()
@@ -157,11 +174,21 @@ class ResourcePostMultiple(unittest.TestCase):
         # Remove the `date` fields in the `comments` field from the
         # posted data because those will be ignored by the resource
         # because they are readonly fields.
-        for article in self.data:
+        # Also remove the `email` field because it's a writeonly field
+        # and ins't be exposed in the API.
+        original_data = copy.deepcopy(self.data)
+        for article in original_data:
             for comment in article['comments']:
                 del(comment['date'])
+                del(comment['email'])
 
-        self.assertEqual(response_data, self.data)
+        self.assertEqual(response_data, original_data)
+
+        # Make sure the `email` field in the `comments` field in the
+        # response is not present, because it's a writeonly field.
+        for article in response_data:
+            for comment in article['comments']:
+                self.assertNotIn('email', comment)
 
     def test_documents(self):
         """
@@ -186,8 +213,16 @@ class ResourcePostMultiple(unittest.TestCase):
                 data['comments'][0]['text']
             )
             self.assertEqual(
+                article.comments[0].email,
+                data['comments'][0]['email']
+            )
+            self.assertEqual(
                 article.comments[1].text,
                 data['comments'][1]['text']
+            )
+            self.assertEqual(
+                article.comments[1].email,
+                data['comments'][1]['email']
             )
             self.assertEqual(
                 article.top_comment.text,

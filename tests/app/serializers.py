@@ -5,6 +5,7 @@ class CommentSerializer(Serializer):
     id = fields.ObjectIdField(identifier=True)
     text = fields.StringField()
     date = fields.DateTimeField(readonly=True)
+    email = fields.StringField(writeonly=True)
 
 
 class ArticleSerializer(Serializer):

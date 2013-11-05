@@ -1,3 +1,4 @@
+import copy
 import unittest
 import json
 from datetime import datetime
@@ -25,12 +26,12 @@ class ResourcePut(unittest.TestCase):
             'publish': True,
             'publish_date': datetime(2013, 10, 9, 8, 7, 8),
             'comments': [
-                Comment(text="Test comment old"),
-                Comment(text="Test comment old 2"),
+                Comment(text="Test comment old", email="test@example.com"),
+                Comment(text="Test comment old 2", email="test2@example.com"),
 
                 # Test to see if this third comment gets removed on
                 # update
-                Comment(text="Test comment old 3"),
+                Comment(text="Test comment old 3", email="test3@example.com"),
             ],
             'top_comment': Comment(text="Top comment old"),
             'tags': ['tag1 old', 'tag2 old', 'tag3 old']
@@ -46,13 +47,19 @@ class ResourcePut(unittest.TestCase):
                     'text': "Test comment new",
 
                     # Test if this readonly field will be ignored
-                    'date': datetime(2010, 6, 5, 4, 3, 2).isoformat()
+                    'date': datetime(2010, 6, 5, 4, 3, 2).isoformat(),
+
+                    # Test if this writeonly field will be updated
+                    'email': "test_updated@example.com"
                 },
                 {
                     'text': "Test comment new 2",
 
                     # Test if this readonly field will be ignored
-                    'date': datetime(2010, 5, 4, 3, 2, 1).isoformat()
+                    'date': datetime(2010, 5, 4, 3, 2, 1).isoformat(),
+
+                    # Test if this writeonly field will be updated
+                    'email': "test2_updated@example.com"
                 }
             ],
             'top_comment': {
@@ -148,10 +155,14 @@ class ResourcePut(unittest.TestCase):
         # Remove the `date` fields in the `comments` field from the
         # putted data because those will be ignored by the resource
         # because they are readonly fields.
-        for comment in self.data_new['comments']:
+        # Also remove the `email` field because it's a writeonly field
+        # and ins't be exposed in the API.
+        original_data = copy.deepcopy(self.data_new)
+        for comment in original_data['comments']:
             del(comment['date'])
+            del(comment['email'])
 
-        self.assertEqual(response_data, self.data_new)
+        self.assertEqual(response_data, original_data)
 
     def test_documents(self):
         """
@@ -172,8 +183,16 @@ class ResourcePut(unittest.TestCase):
             self.data_new['comments'][0]['text']
         )
         self.assertEqual(
+            article.comments[0].email,
+            self.data_new['comments'][0]['email']
+        )
+        self.assertEqual(
             article.comments[1].text,
             self.data_new['comments'][1]['text']
+        )
+        self.assertEqual(
+            article.comments[1].email,
+            self.data_new['comments'][1]['email']
         )
 
         # The complete `comments` field should've been overwritten so

@@ -1,3 +1,4 @@
+import copy
 import unittest
 import json
 from datetime import datetime
@@ -28,13 +29,23 @@ class ResourcePost(unittest.TestCase):
                 {
                     'text': "Test comment",
 
-                    # Test if this readonly field will be ignored
+                    # Test if this writeonly field will be inserted but
+                    # not exposed in the resourse.
+                    'email': 'test@example.com',
+
+                    # Test if this readonly field will be ignored on
+                    # insertion
                     'date': datetime(2010, 6, 5, 4, 3, 2).isoformat()
                 },
                 {
                     'text': "Test comment 2",
 
-                    # Test if this readonly field will be ignored
+                    # Test if this writeonly field will be inserted but
+                    # not exposed in the resourse.
+                    'email': 'test2@example.com',
+
+                    # Test if this readonly field will be ignored on
+                    # insertion
                     'date': datetime(2010, 5, 4, 3, 2, 1).isoformat()
                 }
             ],
@@ -129,10 +140,19 @@ class ResourcePost(unittest.TestCase):
         # Remove the `date` fields in the `comments` field from the
         # posted data because those will be ignored by the resource
         # because they are readonly fields.
-        for comment in self.data['comments']:
+        # Also remove the `email` field because it's a writeonly field
+        # and ins't be exposed in the API.
+        original_data = copy.deepcopy(self.data)
+        for comment in original_data['comments']:
             del(comment['date'])
+            del(comment['email'])
 
-        self.assertEqual(response_data, self.data)
+        self.assertEqual(response_data, original_data)
+
+        # Make sure the `email` field in the `comments` field in the
+        # response is not present, because it's a writeonly field.
+        for comment in response_data:
+            self.assertNotIn('email', comment)
 
     def test_documents(self):
         """
@@ -153,8 +173,16 @@ class ResourcePost(unittest.TestCase):
             self.data['comments'][0]['text']
         )
         self.assertEqual(
+            article.comments[0].email,
+            self.data['comments'][0]['email']
+        )
+        self.assertEqual(
             article.comments[1].text,
             self.data['comments'][1]['text']
+        )
+        self.assertEqual(
+            article.comments[1].email,
+            self.data['comments'][1]['email']
         )
         self.assertEqual(
             article.tags,

@@ -1,3 +1,4 @@
+import copy
 import unittest
 import json
 from datetime import datetime
@@ -28,10 +29,12 @@ class ResourceGet(unittest.TestCase):
                     'publish_date': datetime(2013, 10, 9, 8, 7, 8),
                     'comments': [
                         {
-                            'text': "Test comment"
+                            'text': "Test comment",
+                            'email': "test@example.com"
                         },
                         {
-                            'text': "Test comment 2"
+                            'text': "Test comment 2",
+                            'email': "test2@example.com"
                         }
                     ],
                     'top_comment': {
@@ -116,4 +119,16 @@ class ResourceGet(unittest.TestCase):
             'tags': response_data['tags']
         }]
 
-        self.assertEqual(response_data, self.data['articles'])
+        # Remove `email` fields from the `comments` fields from the
+        # initial data, because this field is a writeonly field and
+        # shouldn't be exposed in the resource.
+        initial_article = copy.deepcopy(self.data['articles'][0])
+        for comment in initial_article['comments']:
+            del(comment['email'])
+
+        self.assertEqual(response_data, [initial_article])
+
+        # Test if the field `email` in `comments` is not present,
+        # because it's a writeonly field and shouldn't be exposed in the
+        # resource.
+        self.assertNotIn('email', response_data[0]['comments'])
