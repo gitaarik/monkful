@@ -13,10 +13,10 @@ Serializers (in Monkful **Recources** and Serializers).
 
 * Easy to set up RESTful API's based on MongoEngine documents
 * Filter results with MongoEngine query like strings
-* POST multiple objects in one HTTP request
 * Correct HTTP status codes and user friendly error messages on incorrect HTTP
-  requests or incorrect data.
+  requests or incorrect data
 * Assign fields as readonly or writeonly
+* POST multiple objects in one HTTP request
 * Update instead of overwrite embedded documents based on an identifier field
 
 ## Development
@@ -116,18 +116,23 @@ directory you can play around with it.
 
 ## Documentation
 
+Using Monkful is really easy. You only need a Resource and a Serializer. The
+Resource will be a standard Flask-RESTful resource with added functionality
+that helps creating a RESTful API from a MongoEngine document. The Serializer
+will parse the data between the Resource and the MongoEngine document.
+
 ### Serializers
 
 In order to represent the data from your MongoEngine documents in an API, the
 data from the documents should be serialized into a format that can be
-transferred over HTTP. As a format, JSON has become the de facto standard, and
-it's the only format Flask-RESTful currently supports, so that automatically
-makes it the only format Monkful uses too.
+transferred over HTTP. JSON has become a widely used format and it's the only
+format Flask-RESTful currently supports, so that automatically makes it the
+only format Monkful uses too.
 
 As a small example for serialization: Consider you have a `DateTimeField` on a
-MongoEngine document. MongoEngine stores Python `datetime` objects, however,
-you can't include this in a JSON object of course. Besides that, JSON has no
-datetime format of it's own.
+MongoEngine document. MongoEngine uses Python `datetime` objects for these
+fields, however, you can't include this in a JSON object of course. Besides
+that, JSON has no datetime format of it's own.
 
 In Monkful you specify a serializer on your resource. The serializer is
 responsible for converting the MongoEngine document into a JSON object. On the
@@ -181,7 +186,7 @@ to parse the value of the field. Can be used for MongoEngine's
 `EmbeddedDocumentField`, `GenericEmbeddedDocumentField`, `DictField`,
 `MapField` and `ReferenceField`.
 
-Provide the sub serializer as the first argument on the `__init__()` method.
+Provide the sub serializer as the first argument on initialization.
 
 ##### ListField
 
@@ -189,7 +194,7 @@ Treat the value of the field as a list and use a sub serializer to parse the
 value of the list items. Can be used for MongoEngine's `ListField` and
 `SortedListField`.
 
-Provide the sub serializer as the first argument on the `__init__()` method.
+Provide the sub serializer as the first argument on initialization.
 
 ##### ObjectIdField
 
@@ -197,10 +202,10 @@ Meant to be used for MongoEngine's `ObjectIdField` fields. This way you can
 access the MongoDB [ObjectId](http://docs.mongodb.org/manual/reference/object-id/).
 This field has the option `readonly` default to `True`.
 
-#### Global options
+#### Options
 
 These options are available on all field serializers. You can provide these
-options as keyword arguments to the serializer field's `__init__()` method.
+options as keyword arguments on initialization of the serializer field.
 
 * `readonly` - If set to `True` this field will only be readable. So on a `GET`
     request it will show up in the response, but if you try to supply the field
