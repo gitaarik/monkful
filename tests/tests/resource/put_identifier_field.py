@@ -1,5 +1,6 @@
 import unittest
 import json
+from datetime import datetime
 from pymongo import MongoClient
 from app import server
 from app.documents import Article, Comment
@@ -21,17 +22,20 @@ class ResourcePutIdentifierField(unittest.TestCase):
         cls.initial_data = {
             'title': "Test title",
             'text': "Test text",
-            'published': True,
+            'publish': True,
+            'publish_date': datetime(2013, 10, 9, 8, 7, 8),
             'comments': [
                 Comment(text="Test comment "),
                 Comment(text="Test comment 2"),
                 Comment(text="Test comment 3"),
             ],
-            'top_comment': Comment(text="Top comment")
+            'top_comment': Comment(text="Top comment"),
+            'tags': ['test', 'unittest', 'python', 'flask']
         }
 
         cls.article = Article(**cls.initial_data).save()
 
+        # the `id` field is the identifier field (duh)
         cls.comments_update = {
             'comments': [
                 {
@@ -77,7 +81,7 @@ class ResourcePutIdentifierField(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
@@ -92,7 +96,8 @@ class ResourcePutIdentifierField(unittest.TestCase):
         response_data = {
             'title': response_data['title'],
             'text': response_data['text'],
-            'published': response_data['published'],
+            'publish': response_data['publish'],
+            'publish_date': response_data['publish_date'],
             'comments': [
                 {
                     'id': response_data['comments'][0]['id'],
@@ -105,7 +110,8 @@ class ResourcePutIdentifierField(unittest.TestCase):
             ],
             'top_comment': {
                 'text': response_data['top_comment']['text']
-            }
+            },
+            'tags': response_data['tags']
         }
 
         self.assertEqual(
@@ -113,11 +119,13 @@ class ResourcePutIdentifierField(unittest.TestCase):
             {
                 'title': self.initial_data['title'],
                 'text': self.initial_data['text'],
-                'published': self.initial_data['published'],
+                'publish': self.initial_data['publish'],
+                'publish_date': self.initial_data['publish_date'].isoformat(),
                 'comments': self.comments_update['comments'],
                 'top_comment': {
                     'text': self.initial_data['top_comment']['text']
-                }
+                },
+                'tags': self.initial_data['tags']
             }
         )
 
@@ -130,6 +138,11 @@ class ResourcePutIdentifierField(unittest.TestCase):
 
         self.assertEqual(article.title, self.initial_data['title'])
         self.assertEqual(article.text, self.initial_data['text'])
+        self.assertEqual(article.publish, self.initial_data['publish'])
+        self.assertEqual(
+            article.publish_date,
+            self.initial_data['publish_date']
+        )
         self.assertEqual(
             article.comments[0].text,
             self.comments_update['comments'][0]['text']
@@ -140,6 +153,10 @@ class ResourcePutIdentifierField(unittest.TestCase):
         )
 
         # The complete `comments` field should've been overwritten so
-        # there should be only two comments instead of 3.
+        # there should be only 2 comments instead of 3.
         self.assertEqual(len(article.comments), 2)
 
+        self.assertEqual(
+            article.tags,
+            self.initial_data['tags']
+        )

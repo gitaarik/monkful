@@ -47,7 +47,7 @@ class ResourcePostInvalidJson(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_error_message(self):
         """

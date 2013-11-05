@@ -1,5 +1,7 @@
 import unittest
 import json
+from datetime import datetime
+from dateutil import parser
 from pymongo import MongoClient
 from app import server
 from app.documents import Article, Comment
@@ -20,7 +22,8 @@ class ResourcePut(unittest.TestCase):
         cls.data_old = {
             'title': "Test title old",
             'text': "Test text old",
-            'published': True,
+            'publish': True,
+            'publish_date': datetime(2013, 10, 9, 8, 7, 8),
             'comments': [
                 Comment(text="Test comment old"),
                 Comment(text="Test comment old 2"),
@@ -29,20 +32,33 @@ class ResourcePut(unittest.TestCase):
                 # update
                 Comment(text="Test comment old 3"),
             ],
-            'top_comment': Comment(text="Top comment old")
+            'top_comment': Comment(text="Top comment old"),
+            'tags': ['tag1 old', 'tag2 old', 'tag3 old']
         }
 
         cls.data_new = {
             'title': "Test title new",
             'text': "Test text new",
-            'published': False,
+            'publish': False,
+            'publish_date': datetime(2013, 11, 10, 9, 8, 7).isoformat(),
             'comments': [
-                { 'text': "Test comment new" },
-                { 'text': "Test comment new 2" }
+                {
+                    'text': "Test comment new",
+
+                    # Test if this readonly field will be ignored
+                    'date': datetime(2010, 6, 5, 4, 3, 2).isoformat()
+                },
+                {
+                    'text': "Test comment new 2",
+
+                    # Test if this readonly field will be ignored
+                    'date': datetime(2010, 5, 4, 3, 2, 1).isoformat()
+                }
             ],
             'top_comment': {
                 'text': "Top comment new"
-            }
+            },
+            'tags': ['tag1 new', 'tag2 new', 'tag3 new'],
         }
 
         article = Article(**cls.data_old).save()
@@ -79,7 +95,7 @@ class ResourcePut(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
@@ -88,10 +104,33 @@ class ResourcePut(unittest.TestCase):
         """
 
         response_data = json.loads(self.response.data)
+
+        # Check that the readonly field `date` in `comments` is present
+        # and is a valid date and is not the date posted because it's a
+        # readonly field and should be ignored when supplied in the PUT
+        # payload.
+        for i, comment in enumerate(response_data['comments']):
+            try:
+                parser.parse(comment['date'])
+            except:
+                self.fail(
+                    "Could not parse the value `{}` into a date object "
+                    "in `date` in `comments`."
+                    .format(comment['date'])
+                )
+            else:
+                self.assertNotEqual(
+                    comment['date'],
+                    self.data_new['comments'][i]['date']
+                )
+
+        # Remap the response data so that it only has the fields our
+        # orignal data also had.
         response_data = {
             'title': response_data['title'],
             'text': response_data['text'],
-            'published': response_data['published'],
+            'publish': response_data['publish'],
+            'publish_date': response_data['publish_date'],
             'comments': [
                 {
                     'text': response_data['comments'][0]['text']
@@ -102,8 +141,15 @@ class ResourcePut(unittest.TestCase):
             ],
             'top_comment': {
                 'text': response_data['top_comment']['text']
-            }
+            },
+            'tags': response_data['tags']
         }
+
+        # Remove the `date` fields in the `comments` field from the
+        # putted data because those will be ignored by the resource
+        # because they are readonly fields.
+        for comment in self.data_new['comments']:
+            del(comment['date'])
 
         self.assertEqual(response_data, self.data_new)
 
@@ -116,6 +162,11 @@ class ResourcePut(unittest.TestCase):
 
         self.assertEqual(article.title, self.data_new['title'])
         self.assertEqual(article.text, self.data_new['text'])
+        self.assertEqual(article.publish, self.data_new['publish'])
+        self.assertEqual(
+            article.publish_date.isoformat(),
+            self.data_new['publish_date']
+        )
         self.assertEqual(
             article.comments[0].text,
             self.data_new['comments'][0]['text']
@@ -128,3 +179,8 @@ class ResourcePut(unittest.TestCase):
         # The complete `comments` field should've been overwritten so
         # there should be only two comments instead of 3.
         self.assertEqual(len(article.comments), 2)
+
+        self.assertEqual(
+            article.tags,
+            self.data_new['tags']
+        )

@@ -1,5 +1,7 @@
 import unittest
 import json
+from datetime import datetime
+from dateutil import parser
 from pymongo import MongoClient
 from app import server
 from app.documents import Article
@@ -20,15 +22,23 @@ class ResourcePost(unittest.TestCase):
         cls.data = {
             'title': "Test title",
             'text': "Test text",
-            'published': True,
+            'publish': True,
+            'publish_date': datetime(2013, 10, 9, 8, 7, 8).isoformat(),
             'comments': [
                 {
-                    'text': "Test comment"
+                    'text': "Test comment",
+
+                    # Test if this readonly field will be ignored
+                    'date': datetime(2010, 6, 5, 4, 3, 2).isoformat()
                 },
                 {
-                    'text': "Test comment 2"
+                    'text': "Test comment 2",
+
+                    # Test if this readonly field will be ignored
+                    'date': datetime(2010, 5, 4, 3, 2, 1).isoformat()
                 }
             ],
+            'tags': ['test', 'unittest', 'python', 'flask'],
             'top_comment': {
                 'text': "Top comment"
             }
@@ -66,7 +76,7 @@ class ResourcePost(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
@@ -76,12 +86,32 @@ class ResourcePost(unittest.TestCase):
 
         response_data = json.loads(self.response.data)
 
+        # Check that the readonly field `date` in `comments` is present
+        # and is a valid date and is not the date posted because it's a
+        # readonly field and should be ignored when supplied in the POST
+        # payload.
+        for i, comment in enumerate(response_data['comments']):
+            try:
+                parser.parse(comment['date'])
+            except:
+                self.fail(
+                    "Could not parse the value `{}` into a date object "
+                    "in `date` in `comments`."
+                    .format(comment['date'])
+                )
+            else:
+                self.assertNotEqual(
+                    comment['date'],
+                    self.data['comments'][i]['date']
+                )
+
         # Remap the response data so that it only has the fields our
         # orignal data also had.
         response_data = {
             'title': response_data['title'],
             'text': response_data['text'],
-            'published': response_data['published'],
+            'publish': response_data['publish'],
+            'publish_date': response_data['publish_date'],
             'comments': [
                 {
                     'text': response_data['comments'][0]['text']
@@ -90,10 +120,17 @@ class ResourcePost(unittest.TestCase):
                     'text': response_data['comments'][1]['text']
                 }
             ],
+            'tags': response_data['tags'],
             'top_comment': {
                 'text': response_data['top_comment']['text']
             }
         }
+
+        # Remove the `date` fields in the `comments` field from the
+        # posted data because those will be ignored by the resource
+        # because they are readonly fields.
+        for comment in self.data['comments']:
+            del(comment['date'])
 
         self.assertEqual(response_data, self.data)
 
@@ -106,6 +143,11 @@ class ResourcePost(unittest.TestCase):
 
         self.assertEqual(article.title, self.data['title'])
         self.assertEqual(article.text, self.data['text'])
+        self.assertEqual(article.publish, self.data['publish'])
+        self.assertEqual(
+            article.publish_date.isoformat(),
+            self.data['publish_date']
+        )
         self.assertEqual(
             article.comments[0].text,
             self.data['comments'][0]['text']
@@ -113,4 +155,8 @@ class ResourcePost(unittest.TestCase):
         self.assertEqual(
             article.comments[1].text,
             self.data['comments'][1]['text']
+        )
+        self.assertEqual(
+            article.tags,
+            self.data['tags']
         )

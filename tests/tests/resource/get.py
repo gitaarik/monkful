@@ -1,5 +1,7 @@
 import unittest
 import json
+from datetime import datetime
+from dateutil import parser
 from pymongo import MongoClient
 from app import server
 from app.documents import Article
@@ -22,7 +24,8 @@ class ResourceGet(unittest.TestCase):
                 {
                     'title': "Test title",
                     'text': "Test text",
-                    'published': True,
+                    'publish': True,
+                    'publish_date': datetime(2013, 10, 9, 8, 7, 8),
                     'comments': [
                         {
                             'text': "Test comment"
@@ -33,7 +36,8 @@ class ResourceGet(unittest.TestCase):
                     ],
                     'top_comment': {
                         'text': "Top comment"
-                    }
+                    },
+                    'tags': ['test', 'unittest', 'python', 'flask']
                 }
             ]
         }
@@ -69,7 +73,7 @@ class ResourceGet(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
@@ -79,12 +83,25 @@ class ResourceGet(unittest.TestCase):
 
         response_data = json.loads(self.response.data)[0]
 
+        # Check that the readonly field `date` in `comments` is present
+        # and a valid date.
+        for comment in response_data['comments']:
+            try:
+                parser.parse(comment['date'])
+            except:
+                self.fail(
+                    "Could not parse the value `{}` into a date object "
+                    "in `date` in `comments`."
+                    .format(comment['date'])
+                )
+
         # Remap the response data so that it only has the fields our
         # orignal data also had.
         response_data = [{
             'title': response_data['title'],
             'text': response_data['text'],
-            'published': response_data['published'],
+            'publish': response_data['publish'],
+            'publish_date': parser.parse(response_data['publish_date']),
             'comments': [
                 {
                     'text': response_data['comments'][0]['text']
@@ -95,7 +112,8 @@ class ResourceGet(unittest.TestCase):
             ],
             'top_comment': {
                 'text': response_data['top_comment']['text']
-            }
+            },
+            'tags': response_data['tags']
         }]
 
         self.assertEqual(response_data, self.data['articles'])

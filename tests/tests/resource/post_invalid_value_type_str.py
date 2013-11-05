@@ -21,7 +21,7 @@ class ResourcePostInvalidValueTypeStr(unittest.TestCase):
         data = {
             'title': "Test title",
             'text': "Test text",
-            'published': "This should be a Boolean"
+            'publish': "This should be a Boolean"
         }
 
         cls.response = cls.app.post(
@@ -56,7 +56,7 @@ class ResourcePostInvalidValueTypeStr(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
