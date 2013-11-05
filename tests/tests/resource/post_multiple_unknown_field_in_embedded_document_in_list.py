@@ -5,23 +5,45 @@ from app import server
 from app.documents import Article
 
 
-class ResourcePostInvalidValueTypeInt(unittest.TestCase):
+class ResourcePostMultipleUnknownFieldInEmbeddedDocumentInList(unittest.TestCase):
     """
-    Test if a HTTP POST request with an invalid value for a specific
-    field results in the correct response.
+    Test if a HTTP POST request with multiple objects with an unknown
+    field in an embedded document in a list gives the correct response.
     """
 
     @classmethod
     def setUpClass(cls):
 
-        server.app.debug = True
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
-        data = {
-            'title': "Test title",
-            'text': 123124 # should actually be of type 'String'
-        }
+        data = [
+            {
+                'title': "Test title",
+                'text': "Test text",
+                'comments': [
+                    {
+                        'text': "Test comment",
+                        'unknown_field': "This field doesn't exist"
+                    },
+                    {
+                        'text': "Test comment 2"
+                    }
+                ]
+            },
+            {
+                'title': "Test title 2",
+                'text': "Test text 2",
+                'comments': [
+                    {
+                        'text': "Test comment 3",
+                    },
+                    {
+                        'text': "Test comment 4"
+                    }
+                ]
+            }
+        ]
 
         cls.response = cls.app.post(
             '/articles/',
@@ -61,8 +83,10 @@ class ResourcePostInvalidValueTypeInt(unittest.TestCase):
         """
         Test if the response has a 'message'.
         """
-        data = json.loads(self.response.data)
-        self.assertTrue('message' in data)
+        self.assertEqual(
+            json.loads(self.response.data)['message'],
+            "There is no field 'unknown_field' in 'comments' on this resource."
+        )
 
     def test_documents(self):
         """

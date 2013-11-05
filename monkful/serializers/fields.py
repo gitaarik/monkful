@@ -1,21 +1,28 @@
 import inspect
 import dateutil.parser
-from .exceptions import (UnknownField, ValueInvalidType, DataInvalidType,
-    SerializeWriteonlyField, DeserializeReadonlyField)
+from bson.objectid import ObjectId
+from .exceptions import (FieldError, ValueInvalidType, ValueInvalidFormat,
+    SerializeWriteonlyField, InvalidFieldSerializer)
 
 
 class Field(object):
 
-    def __init__(self, readonly=False, writeonly=False):
+    def __init__(self, **kwargs):
 
         # Name of the field
         self.name = None
 
+        # If this field is a master field
+        self.master = False
+
         # If this is a read only field
-        self.readonly = readonly
+        self.readonly = kwargs.get('readonly')
 
         # If this is a write only field
-        self.writeonly = writeonly
+        self.writeonly = kwargs.get('writeonly')
+
+        # If this field can act as an identifier for the document
+        self.identifier = kwargs.get('identifier')
 
     def serialize(self, value):
         """
@@ -36,13 +43,31 @@ class Field(object):
         Returns the deserialized value of the field.
         """
 
-        if self.readonly:
-            raise DeserializeReadonlyField(self)
-
         if value is None:
             return None
         else:
             return self._deserialize(value)
+
+    def master_field(self):
+        """
+        Returns the master field for this field, if the field itself
+        is the master field, it will return itself.
+
+        The master field is a `Field` instance that is defined as an
+        attribute on the serializer. Non-master fields are fields that
+        are embedded in other fields, for example, in this serializer:
+
+            class MySerializer(Serializer):
+                scores = ListField(IntField())
+
+        The `ListField` instance is a master field and the `IntField`
+        inside of it is an embedded field.
+        """
+
+        if self.master:
+            return self
+        else:
+            return self.parent.master_field()
 
 
 class StringField(Field):
@@ -118,7 +143,15 @@ class DateTimeField(Field):
         if type(value) is not unicode:
             raise ValueInvalidType(self, value)
 
-        return dateutil.parser.parse(value)
+        if value:
+
+            try:
+                return dateutil.parser.parse(value)
+            except ValueError:
+                raise ValueInvalidFormat(self, 'ISO 8601', value)
+
+        else:
+            return None
 
 
 class DocumentField(Field):
@@ -144,51 +177,69 @@ class DocumentField(Field):
         if type(data) is not dict:
             raise ValueInvalidType(self, data)
 
-        return self.sub_serializer.deserialize(data)
+        try:
+            return self.sub_serializer.deserialize(data)
+        except FieldError as error:
+            # If a `FieldError` exception occurs, we add this field as a
+            # parent in the parent fields chain. This will be used for
+            # error messages so that they can show what the parents of
+            # the field are.
+
+            error.add_parent(self.master_field())
+            raise error
 
 
 class ListField(Field):
     """
-    A field containing a list of other types.
+    A field containing a list of other fields.
 
-    Will serialize every item in the list using the provided serializer.
+    Will serialize every item in the list using the provided sub_field.
     """
 
     # The type of value `_deserialize` expects to get
     deserialize_type = list
 
-    def __init__(self, sub_type, *args, **kwargs):
+    def __init__(self, sub_field, *args, **kwargs):
         """
-        Serializes a list of items using the provided `sub_type`. This
-        can either be a `Serializer` or a `Field`.
+        Serializes a list of items using the provided `sub_field`.
         """
 
-        self.sub_type = sub_type
+        # Explicitly check if the sub_field is an instance of `Field`
+        # because it could be no problem here, but can be elsewhere.
+        # For example, you could give a Document Serializer instead of a
+        # DocumentField and it won't fail here because the serialize
+        # method will do the same in both situations. However, when
+        # inspecting the serializer, it's not expected to find a
+        # Document Serializer on a ListField. Therefor the explicit
+        # check.
+        if not isinstance(sub_field, Field):
+            raise InvalidFieldSerializer(self, sub_field, Field)
 
-        # Instantiate the `sub_type` if it's not yet an instance
-        if inspect.isclass(self.sub_type):
-            self.sub_type = self.sub_type()
-
+        self.sub_field = sub_field
 
         super(ListField, self).__init__(*args, **kwargs)
 
     def _serialize(self, field_list):
-        # Uses the `sub_serializer` to serialize the items in the list.
-        return [self.sub_type.serialize(item) for item in field_list]
+        # Uses the `sub_field` to serialize the items in the list
+        return [self.sub_field.serialize(item) for item in field_list]
 
     def _deserialize(self, field_list):
 
         if type(field_list) is not list:
             raise ValueInvalidType(self, field_list)
 
-        # Uses the `sub_serializer` to deserialize the items in the list.
-        try:
-            return [self.sub_type.deserialize(item) for item in field_list]
-        except (
-            UnknownField,
-            ValueInvalidType,
-            DataInvalidType,
-            DeserializeReadonlyField
-        ) as error:
-            error.add_parent(self)
-            raise error
+        # Uses the `sub_serializer` to deserialize the items in the list
+        return [self.sub_field.deserialize(item) for item in field_list]
+
+class ObjectIdField(Field):
+    """
+    A field containing a MongoDB ObjectId.
+    http://docs.mongodb.org/manual/reference/object-id/
+    """
+    readonly = True
+
+    def _serialize(self, value):
+        return unicode(value)
+
+    def _deserialize(self, value):
+        return ObjectId(value)

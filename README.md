@@ -12,10 +12,12 @@ Serializers (in Monkful **Recources** and Serializers).
 ## Features
 
 * Easy to set up RESTful API's based on MongoEngine documents
-* POST multiple objects in one HTTP request
+* Filter results with MongoEngine query like strings
 * Correct HTTP status codes and user friendly error messages on incorrect HTTP
-  requests
+  requests or incorrect data
 * Assign fields as readonly or writeonly
+* POST multiple objects in one HTTP request
+* Update instead of overwrite embedded documents based on an identifier field
 
 ## Development
 
@@ -87,7 +89,7 @@ directory you can play around with it.
     from resources import PostResource
 
     connect('posts')
-    app = Flask(__name__)
+    app = Flask('myproject')
     api = restful.Api(app)
     api.add_resource(PostResource, '/posts/')
 
@@ -114,18 +116,23 @@ directory you can play around with it.
 
 ## Documentation
 
+Using Monkful is really easy. You only need a Resource and a Serializer. The
+Resource will be a standard Flask-RESTful resource with added functionality
+that helps creating a RESTful API from a MongoEngine document. The Serializer
+will parse the data between the Resource and the MongoEngine document.
+
 ### Serializers
 
 In order to represent the data from your MongoEngine documents in an API, the
 data from the documents should be serialized into a format that can be
-transferred over HTTP. As a format, JSON has become the de facto standard, and
-it's the only format Flask-RESTful currently supports, so that automatically
-makes it the only format Monkful uses too.
+transferred over HTTP. JSON has become a widely used format and it's the only
+format Flask-RESTful currently supports, so that automatically makes it the
+only format Monkful uses too.
 
 As a small example for serialization: Consider you have a `DateTimeField` on a
-MongoEngine document. MongoEngine stores Python `datetime` objects, however,
-you can't include this in a JSON object of course. Besides that, JSON has no
-datetime format of it's own.
+MongoEngine document. MongoEngine uses Python `datetime` objects for these
+fields, however, you can't include this in a JSON object of course. Besides
+that, JSON has no datetime format of it's own.
 
 In Monkful you specify a serializer on your resource. The serializer is
 responsible for converting the MongoEngine document into a JSON object. On the
@@ -152,93 +159,53 @@ This is a list of the field serializers Monkful currently supports. You can
 import the fields using `from monkful.serializers import fields` and then use
 for example `my_string_field = fields.StringField()` on your serializer.
 
-The column "Appropriate for MongoEngine fields" lists some MongoEngine
-fields that this field serializer can be used for, however it's not necessarily
-restricted to this field serializer. It is possible that there are several
-field serializers that can be appropriate to use for a certain MongoEngine
-field.
+##### StringField
 
-<table>
-    <tr>
-        <th>Monkful field serializer</th>
-        <th>Appropriate for MongoEngine fields</th>
-        <th>Arguments</th>
-    <tr>
-        <td>StringField</td>
-        <td>
-            <ul>
-                <li>StringField</li>
-                <li>URLField</li>
-                <li>EmailField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>IntField</td>
-        <td>
-            <ul>
-                <li>IntField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>BooleanField</td>
-        <td>
-            <ul>
-                <li>BooleanField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>DateTimeField</td>
-        <td>
-            <ul>
-                <li>DateTimeField</li>
-                <li>ComplexDateTimeField</li>
-            </ul>
-        </td>
-        <td></td>
-    </tr>
-    <tr>
-        <td>DocumentField</td>
-        <td>
-            <ul>
-                <li>EmbeddedDocumentField</li>
-                <li>GenericEmbeddedDocumentField</li>
-                <li>DictField</li>
-                <li>MapField</li>
-                <li>ReferenceField</li>
-            </ul>
-        </td>
-        <td>
-            <ul>
-                <li>sub_serializer - The serializer to use for the object held by the field.</li>
-            </ul>
-        </td>
-    </tr>
-    <tr>
-        <td>ListField</td>
-        <td>
-            <ul>
-                <li>ListField</li>
-                <li>SortedListField</li>
-            </ul>
-        </td>
-        <td>
-            <ul>
-                <li>sub_serializer - The serializer to use for the objects in the list.</li>
-            </ul>
-        </td>
-    </tr>
-</table>
+Validates that the value for this field is a string on `POST` requests. Can be
+used for MongoEngine's `StringField`, `URLField` and `EmailField`.
 
-##### Global options
+##### IntField
+
+Validates that the value for this field is a integer on `POST` requests. Can be
+used for MongoEngine's `IntField`.
+
+##### BooleanField
+
+Serializer for a boolean. Can be used for MongoEngine's `BooleanField`.
+
+##### DateTimeField
+
+Will serialize a python `datetime` field to an ISO 8601 string. On a `POST`
+request it will deserialize an ISO 8601 to a python `datetime` object. Can be
+used for MongoEngine's `DateTimeField` and `ComplexDateTimeField`.
+
+##### DocumentField
+
+Specify a sub serializer for this field. This sub serializer will then be used
+to parse the value of the field. Can be used for MongoEngine's
+`EmbeddedDocumentField`, `GenericEmbeddedDocumentField`, `DictField`,
+`MapField` and `ReferenceField`.
+
+Provide the sub serializer as the first argument on initialization.
+
+##### ListField
+
+Treat the value of the field as a list and use a sub serializer to parse the
+value of the list items. Can be used for MongoEngine's `ListField` and
+`SortedListField`.
+
+Provide the sub serializer as the first argument on initialization.
+
+##### ObjectIdField
+
+Meant to be used for MongoEngine's `ObjectIdField` fields. This way you can
+access the MongoDB [ObjectId](http://docs.mongodb.org/manual/reference/object-id/).
+This field has the option `readonly` default to `True`.
+
+#### Options
 
 These options are available on all field serializers. You can provide these
-options as keyword arguments to the serializer field's `__init__()` method.
+options as keyword arguments on initialization of the serializer field.
 
 * `readonly` - If set to `True` this field will only be readable. So on a `GET`
     request it will show up in the response, but if you try to supply the field

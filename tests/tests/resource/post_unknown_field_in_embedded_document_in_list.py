@@ -2,13 +2,13 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
-from app.documents import Post
+from app.documents import Article
 
 
-class ResourcePostUnknownFieldInListItem(unittest.TestCase):
+class ResourcePostUnknownFieldInEmbeddedDocumentInList(unittest.TestCase):
     """
-    Test if a HTTP POST request with an unknown field in a list item
-    gives the correct response.
+    Test if a HTTP POST request with an unknown field in an embedded
+    document in a list field gives the correct response.
     """
 
     @classmethod
@@ -31,11 +31,15 @@ class ResourcePostUnknownFieldInListItem(unittest.TestCase):
             ]
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(data))
+        cls.response = cls.app.post(
+            '/articles/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(data)
+        )
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.unittest_monkful.post.remove()
+        cls.mongo_client.unittest_monkful.article.remove()
 
     def test_status_code(self):
         """
@@ -59,17 +63,19 @@ class ResourcePostUnknownFieldInListItem(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
         Test if the response has a 'message'.
         """
-        data = json.loads(self.response.data)
-        self.assertTrue('message' in data)
+        self.assertEqual(
+            json.loads(self.response.data)['message'],
+            "There is no field 'unknown_field' in 'comments' on this resource."
+        )
 
     def test_documents(self):
         """
         Test if the documents are still empty.
         """
-        self.assertEqual(Post.objects.count(), 0)
+        self.assertEqual(Article.objects.count(), 0)

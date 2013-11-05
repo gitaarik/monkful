@@ -89,6 +89,33 @@ class ValueInvalidType(FieldError):
             message, field, *args, **kwargs)
 
 
+class ValueInvalidFormat(FieldError):
+    """
+    Raised when an invalid ISO date format is provided for a
+    `DateTimeField`.
+    """
+
+    def __init__(self, field, format_name, value, *args, **kwargs):
+
+        # The field the error occurred on
+        self.field = field
+
+        # The name of the format the value should be in
+        self.format_name = format_name
+
+        # The value that was attempted to be inserted
+        self.value = value
+
+        message = (
+            "The value '{}' for field '{}' could not be parsed. "
+            "Note that it should be in ISO 8601 format."
+            .format(value, field.name)
+        )
+
+        super(ValueInvalidFormat, self).__init__(
+            message, field, *args, **kwargs)
+
+
 class SerializeWriteonlyField(FieldError):
     """
     Raised when a writeonly field is attempted to be serialized.
@@ -104,24 +131,24 @@ class SerializeWriteonlyField(FieldError):
             "field.".format(field.name)
         )
 
-        super(DeserializeReadonlyField, self).__init__(
+        super(SerializeWriteonlyField, self).__init__(
             message, field, *args, **kwargs)
 
 
-class DeserializeReadonlyField(FieldError):
+class InvalidFieldSerializer(FieldError):
     """
-    Raised when a readonly field is attempted to be deserialized.
+    Raised when an invalid serializer is provided to a ListField.
     """
 
-    def __init__(self, field, *args, **kwargs):
+    def __init__(self, instance, serializer, *args, **kwargs):
 
-        # The field the error occurred on
-        self.field = field
+        self.instance = instance
+        self.serializer = serializer
 
         message = (
-            "Can't deserialize value for field '{}' because it's a readonly "
-            "field.".format(field.name)
+            "Invalid serializer '{}' provided to ListField '{}'. Note that "
+            "ListField expects a FieldSerializer."
+            .format(serializer, instance)
         )
 
-        super(DeserializeReadonlyField, self).__init__(
-            message, field, *args, **kwargs)
+        super(InvalidFieldSerializer, self).__init__(message, *args, **kwargs)

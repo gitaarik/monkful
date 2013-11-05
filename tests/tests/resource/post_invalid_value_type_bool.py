@@ -2,7 +2,7 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
-from app.documents import Post
+from app.documents import Article
 
 
 class ResourcePostInvalidValueTypeBool(unittest.TestCase):
@@ -23,11 +23,15 @@ class ResourcePostInvalidValueTypeBool(unittest.TestCase):
             'text': False # Should actually be of type 'String'
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(data))
+        cls.response = cls.app.post(
+            '/articles/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(data)
+        )
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.unittest_monkful.post.remove()
+        cls.mongo_client.unittest_monkful.article.remove()
 
     def test_status_code(self):
         """
@@ -51,7 +55,7 @@ class ResourcePostInvalidValueTypeBool(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
@@ -64,4 +68,4 @@ class ResourcePostInvalidValueTypeBool(unittest.TestCase):
         """
         Test if the documents are still empty.
         """
-        self.assertEqual(Post.objects.count(), 0)
+        self.assertEqual(Article.objects.count(), 0)

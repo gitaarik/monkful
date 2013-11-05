@@ -1,5 +1,5 @@
 import inspect
-from .fields import Field
+from .fields import Field, ListField
 from .exceptions import UnknownField, DataInvalidType
 
 
@@ -10,9 +10,19 @@ class Serializer(object):
         self.field_cache = {}
         self.fields_cache = {}
 
-        # Set names of fields on field instances
+        def init_embedded_fields(field):
+            """
+            Sets the parent field on embedded fields.
+            """
+
+            if isinstance(field, ListField):
+                field.sub_field.parent = field
+                init_embedded_fields(field.sub_field)
+
         for fieldname, field in self._fields().items():
             field.name = fieldname
+            field.master = True
+            init_embedded_fields(field)
 
     def serialize(self, document):
         """
@@ -42,10 +52,20 @@ class Serializer(object):
         if type(data) is not dict:
             raise DataInvalidType(self, data)
 
-        return {
-            fieldname: self._field(fieldname).deserialize(value)
-            for fieldname, value in data.items()
-        }
+        deserialized_data = {}
+
+        for fieldname, value in data.items():
+
+            field = self._field(fieldname)
+
+            # Ignore read-only fields. For convenience we don't give an
+            # error for this because otherwise clients need to strip out
+            # the read-only fields when they modify data from a GET and
+            # send it back through PUT.
+            if not field.readonly:
+                deserialized_data[fieldname] = field.deserialize(value)
+
+        return deserialized_data
 
     def _field(self, fieldname):
         """

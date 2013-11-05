@@ -2,7 +2,7 @@ import unittest
 import json
 from pymongo import MongoClient
 from app import server
-from app.documents import Post
+from app.documents import Article
 
 
 class ResourcePostDuplicateValue(unittest.TestCase):
@@ -24,7 +24,7 @@ class ResourcePostDuplicateValue(unittest.TestCase):
             'text': "Test text"
         }
 
-        Post(**initial_data).save()
+        Article(**initial_data).save()
 
         # Then POST an item with the same title (which should be unique)
         data = {
@@ -32,11 +32,15 @@ class ResourcePostDuplicateValue(unittest.TestCase):
             'text': "Test text 2"
         }
 
-        cls.response = cls.app.post('/posts/', data=json.dumps(data))
+        cls.response = cls.app.post(
+            '/articles/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(data)
+        )
 
     @classmethod
     def tearDownClass(cls):
-        cls.mongo_client.unittest_monkful.post.remove()
+        cls.mongo_client.unittest_monkful.article.remove()
 
     def test_status_code(self):
         """
@@ -60,7 +64,7 @@ class ResourcePostDuplicateValue(unittest.TestCase):
         try:
             json.loads(self.response.data)
         except:
-            self.fail("Respnose is not valid JSON.")
+            self.fail("Response is not valid JSON.")
 
     def test_content(self):
         """
@@ -73,4 +77,4 @@ class ResourcePostDuplicateValue(unittest.TestCase):
         """
         Test if there's still only one document in the DB.
         """
-        self.assertEqual(Post.objects.count(), 1)
+        self.assertEqual(Article.objects.count(), 1)
