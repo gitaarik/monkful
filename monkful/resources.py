@@ -92,9 +92,9 @@ class MongoEngineResource(Resource):
         data = self.get_data(*args, **kwargs)
 
         if self.is_item(data):
-            return self.get_item(data)
+            return self.get_item_serialized(data)
         else:
-            return self.get_list(data)
+            return self.get_list_serialized(data)
 
     def is_item(self, data):
         """
@@ -107,13 +107,13 @@ class MongoEngineResource(Resource):
         """
         return isinstance(data, Document)
 
-    def get_item(self, document):
+    def get_item_serialized(self, document):
         """
         Returns the provided MongoEngine document serialized.
         """
         return self.serializer.serialize(document)
 
-    def get_list(self, queryset):
+    def get_list_serialized(self, queryset):
         """
         Returns a list of serialized documents from the provided
         MongoEngine queryset.
@@ -133,25 +133,34 @@ class MongoEngineResource(Resource):
 
         You can overwrite this method to alter this behaviour.
         """
-
         if 'id' in kwargs:
-
-            try:
-                return self.document.objects.get(id=kwargs['id'])
-            except (DoesNotExist, ValidationError):
-                abort(404, message=
-                    "The resource with id '{}' does not exist"
-                    .format(kwargs['id'])
-                )
-
+            return self.get_item(*args, **kwargs)
         else:
+            return self.get_list(*args, **kwargs)
 
-            if request.args:
-                return self.document.objects.filter(
-                    **self._serialize_query(request.args.to_dict())
-                )
-            else:
-                return self.document.objects
+    def get_item(self, *args, **kwargs):
+        """
+        Returns the document that should be returned on a GET request.
+        """
+        try:
+            return self.document.objects.get(id=kwargs['id'])
+        except (DoesNotExist, ValidationError):
+            abort(404, message=
+                "The resource with id '{}' does not exist"
+                .format(kwargs['id'])
+            )
+
+    def get_list(self, *args, **kwargs):
+        """
+        Returns the list of documents that should be returned on a GET
+        request.
+        """
+        if request.args:
+            return self.document.objects.filter(
+                **self._serialize_query(request.args.to_dict())
+            )
+        else:
+            return self.document.objects
 
     def _serialize_query(self, query):
         """
@@ -335,30 +344,38 @@ class MongoEngineResource(Resource):
 
         You can overwrite this method to alter the default behaviour.
         """
+
         try:
             document_id = kwargs['id']
         except KeyError:
             abort(400, message="No id provided")
-        else:
-            try:
-                return self.document.objects.get(id=document_id)
-            except (DoesNotExist, ValidationError):
-                abort(404, message=
-                    "Resource with id '{}' does not exist".format(document_id)
-                )
 
-    def delete(self, id, *args, **kwargs):
+        try:
+            return self.document.objects.get(id=document_id)
+        except (DoesNotExist, ValidationError):
+            abort(404, message=
+                "Resource with id '{}' does not exist".format(document_id)
+            )
+
+    def delete(self, *args, **kwargs):
         """
         Processes a HTTP DELETE request.
-        If the document doesn't exist it will continue silently
         """
+
         try:
-            self.document.objects.get(id=id).delete()
+            document_id = kwargs['id']
+        except KeyError:
+            abort(400, message="No id provided")
+
+        try:
+            self.document.objects.get(id=document_id).delete()
         except DoesNotExist:
-            pass
+            abort(404, message=
+                "Resource with id '{}' does not exist".format(document_id)
+            )
 
         return {
-            'details': "Successfully deleted document with id: {}".format(id)
+            'details': "Successfully deleted resource with id: {}".format(id)
         }
 
     def _request_data(self):

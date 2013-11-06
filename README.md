@@ -7,7 +7,7 @@ Monkful combines [Flask-RESTful](http://flask-restful.readthedocs.org/en/latest/
 and [MongoEngine](http://mongoengine.org/) and provides an easy way to create
 RESTful resources for MongoEngine documents in a Flask project. It's inspired
 by [Django REST framework](http://django-rest-framework.org/)'s Views and
-Serializers (in Monkful **Recources** and Serializers).
+Serializers (in Monkful they're called **Recources** and Serializers).
 
 ## Features
 
@@ -45,7 +45,7 @@ directory you can play around with it.
     ```python
     from mongoengine import Document, fields
 
-    class Post(Document):
+    class Article(Document):
         title = fields.StringField()
         text = fields.StringField()
     ```
@@ -57,7 +57,7 @@ directory you can play around with it.
     ```python
     from monkful.serializers import Serializer, fields
 
-    class PostSerializer(Serializer):
+    class ArticleSerializer(Serializer):
         title = fields.StringField()
         text = fields.StringField()
     ```
@@ -69,12 +69,12 @@ directory you can play around with it.
 
     ```python
     from monkful.resources import MongoEngineResource
-    from documents import Post
-    from serializers import PostSerializer
+    from documents import Article
+    from serializers import ArticleSerializer
 
-    class PostResource(MongoEngineResource):
-        document = Post
-        serializer = PostSerializer
+    class ArticleResource(MongoEngineResource):
+        document = Article
+        serializer = ArticleSerializer
     ```
 
 4. Make your resource available like a regular
@@ -86,12 +86,12 @@ directory you can play around with it.
     from flask import Flask
     from flask.ext import restful
     from mongoengine import connect
-    from resources import PostResource
+    from resources import ArticleResource
 
-    connect('posts')
-    app = Flask('myproject')
+    connect('blog')
+    app = Flask('my_project')
     api = restful.Api(app)
-    api.add_resource(PostResource, '/posts/')
+    api.add_resource(ArticleResource, '/articles/', '/articles/<id>/')
 
     if __name__ == '__main__':
         app.run(debug=True)
@@ -116,10 +116,64 @@ directory you can play around with it.
 
 ## Documentation
 
-Using Monkful is really easy. You only need a Resource and a Serializer. The
-Resource will be a standard Flask-RESTful resource with added functionality
-that helps creating a RESTful API from a MongoEngine document. The Serializer
-will parse the data between the Resource and the MongoEngine document.
+Using Monkful is really easy. To create a resource based on a MongoEngine
+document, You only need to create a Resource and a Serializer. The Resource
+will be a standard Flask-RESTful resource with added functionality that helps
+creating a RESTful API for the MongoEngine document. The Serializer will parse
+the data between the API and the MongoEngine document.
+
+### Resources
+
+On a minimal Resource you specify the MongoEngine document you want the
+resource to be based on, and the Serializer that should be used to parse the
+data between the API and the MongoEngine document. This would look something
+like this:
+
+    **resources.py**
+
+    ```python
+    from monkful.resources import MongoEngineResource
+    from documents import MyMongoEngineDocument
+    from serializers import MySerializer
+
+    class MyResource(MongoEngineResource):
+        document = MyMongoEngineDocument
+        serializer = MySerializer
+    ```
+
+Now when you have set up your `MyMongoEngineDocument` and `MySerializer`, and
+you've added the resource to the Flask project, you should already have a
+working API. Because you haven't customized the Resource yet, it will have some
+default behaviour:
+
+- On every request it will check if the content-type header is correct.
+- On a GET request on the root URL of the Resource (e.g. /my\_resource/), it
+  will show all the documents. Filters can be applied to this.
+- On a GET request on a URL with the ObjectId of a document, (e.g.
+  /my\_resource/526e3f85aa26497f34f37f2e/) it will show only this document.
+- On a POST request it will insert a document.
+- On a PUT request on a URL with the ObjectId of the to be updated document
+  (e.g. /my\_resource/526e3f85aa26497f34f37f2e/), it will update this document.
+- On a DELETE request on a URL with the ObjectId of the to be updated document
+  (e.g. /my\_resource/526e3f85aa26497f34f37f2e/), it will delete this document.
+
+Note that for the ObjectId in the URL, you should add this route in your Flask
+project to point to the Resource.
+
+You can completely customize this default behaviour to suite your needs. See
+the following topics:
+
+- Limiting the allowed HTTP request methods (GET, POST, PUT, DELETE)
+- Adding Authentication to your Resource
+- Limiting the documents returned
+- Getting a document based on the URL
+- Adding custom validation for POST and PUT requests
+- Pre-parsing data from POST and PUT
+- Create a single document Resource
+- Handling Not Unique and document wide Validation errors
+
+If you really need something special, dive into the `MongoEngineResource`
+source code. It's well documented and build to be extensible.
 
 ### Serializers
 
