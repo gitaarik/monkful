@@ -86,13 +86,14 @@ class MongoEngineResource(Resource):
             self.target_document_obj = self.document
             self.target_serializer = self.serializer
 
-            try:
-                self.target_document = (
-                    self.target_document_obj.objects.get(id=kwargs['id'])
-                )
-            except (DoesNotExist, ValidationError):
+            self.target_document = self.target_document_instance(
+                self.target_document_obj,
+                kwargs['id']
+            )
+
+            if not self.target_document:
                 abort(404, message=
-                    "The resource with id '{}' does not exist"
+                    "The resource specified with identifier '{}' could not be found"
                     .format(kwargs['id'])
                 )
 
@@ -112,6 +113,26 @@ class MongoEngineResource(Resource):
             self.target_document_obj = self.document
             self.target_document = None
             self.target_serializer = self.serializer
+
+    def target_document_instance(self, document_obj, identifier):
+        """
+        Get a document instance from the provided `document_obj` based
+        on the `identifier`.
+        """
+        if self.is_base_document():
+            return self.document_instance(identifier)
+        else:
+            # TODO: get target document based on `identifier`
+            pass
+
+    def document_instance(self, identifier):
+        """
+        Get a document instance based on `identifier`.
+        """
+        try:
+            return self.document.objects.get(id=identifier)
+        except (DoesNotExist, ValidationError):
+            return False
 
     def all_documents(self):
         """
@@ -140,12 +161,12 @@ class MongoEngineResource(Resource):
 
         data = self.get_data(*args, **kwargs)
 
-        if self.is_item(data):
-            return self.get_item_serialized(data)
+        if self.is_document(data):
+            return self.get_document_serialized(data)
         else:
             return self.get_list_serialized(data)
 
-    def is_item(self, data):
+    def is_document(self, data):
         """
         Returns `True` if `data` represents a single document and not a
         list of documents.
@@ -156,7 +177,7 @@ class MongoEngineResource(Resource):
         """
         return isinstance(data, Document)
 
-    def get_item_serialized(self, document):
+    def get_document_serialized(self, document):
         """
         Returns the provided MongoEngine document serialized.
         """
@@ -183,11 +204,11 @@ class MongoEngineResource(Resource):
         You can overwrite this method to alter this behaviour.
         """
         if self.target_document:
-            return self.get_item(*args, **kwargs)
+            return self.get_document(*args, **kwargs)
         else:
             return self.get_list(*args, **kwargs)
 
-    def get_item(self, *args, **kwargs):
+    def get_document(self, *args, **kwargs):
         """
         Returns the document that should be returned on a GET request.
         """
@@ -213,12 +234,12 @@ class MongoEngineResource(Resource):
         # `all_documents()` method, otherwise, use the `objects`
         # property, because target documents are subsets of the base
         # document and won't have to be limitted.
-        if self._is_base_document():
+        if self.is_base_document():
             return self.all_documents()
         else:
             return self.target_document_obj.objects
 
-    def _is_base_document(self):
+    def is_base_document(self):
         """
         Returns True if `self.target_document_obj` is the base document
         (`self.document`). Otherwise returns False.
@@ -421,7 +442,7 @@ class MongoEngineResource(Resource):
         if not self.target_document:
             abort(400, message="No id provided")
 
-        if self._is_base_document():
+        if self.is_base_document():
             self.target_document.delete()
         else:
             # TODO: remove the target document from the base document and save the base document
