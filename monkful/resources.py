@@ -458,7 +458,8 @@ class MongoEngineResource(Resource):
 
     def _deserialize(self, data):
         """
-        Deserializes the data into a document.
+        Deserializes the data into data appropriate for creating/
+        updating a MongoEngine document.
 
         If there were exceptions during the deserialization, it will
         `abort` with an appropriate error message.
@@ -681,16 +682,11 @@ class MongoEngineResource(Resource):
                 else:
                     return create_document(field.document_type, data)
 
-            if field.__class__ in (
-                fields.ListField,
-                fields.SortedListField
-            ):
+            if isinstance(field, fields.ListField):
                 return listfield_value()
-            elif field.__class__ in (
-                fields.EmbeddedDocumentField,
-                fields.GenericEmbeddedDocumentField,
-                fields.ReferenceField,
-                fields.GenericReferenceField
+            elif (
+                isinstance(field, fields.EmbeddedDocumentField) or
+                isinstance(field, fields.ReferenceField)
             ):
                 return documentfield_value()
             else:
