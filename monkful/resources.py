@@ -91,12 +91,12 @@ class MongoEngineResource(Resource):
 
         data = self.get_data(*args, **kwargs)
 
-        if self.is_item(data):
-            return self.get_item_serialized(data)
+        if self.is_document(data):
+            return self.get_document_serialized(data)
         else:
             return self.get_list_serialized(data)
 
-    def is_item(self, data):
+    def is_document(self, data):
         """
         Returns `True` if `data` represents a single document and not a
         list of documents.
@@ -107,7 +107,7 @@ class MongoEngineResource(Resource):
         """
         return isinstance(data, Document)
 
-    def get_item_serialized(self, document):
+    def get_document_serialized(self, document):
         """
         Returns the provided MongoEngine document serialized.
         """
@@ -134,11 +134,11 @@ class MongoEngineResource(Resource):
         You can overwrite this method to alter this behaviour.
         """
         if 'id' in kwargs:
-            return self.get_item(*args, **kwargs)
+            return self.get_document(*args, **kwargs)
         else:
             return self.get_list(*args, **kwargs)
 
-    def get_item(self, *args, **kwargs):
+    def get_document(self, *args, **kwargs):
         """
         Returns the document that should be returned on a GET request.
         """
