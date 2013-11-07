@@ -23,6 +23,7 @@ class MongoEngineResource(Resource):
         # Call authenticate for each request
         self.authenticate()
         self.check_request_content_type_header()
+        self.init_target_document_and_serializer(*args, **kwargs)
         return super(MongoEngineResource, self).dispatch_request(*args, **kwargs)
 
     def authenticate(self):
@@ -75,6 +76,54 @@ class MongoEngineResource(Resource):
                 .format(charset)
             )
 
+    def init_target_document_and_serializer(self, *args, **kwargs):
+        """
+        Initiates the target document and target serializer.
+        """
+
+        if 'id' in kwargs:
+
+            self.target_document_obj = self.document
+            self.target_serializer = self.serializer
+
+            try:
+                self.target_document = (
+                    self.target_document_obj.objects.get(id=kwargs['id'])
+                )
+            except (DoesNotExist, ValidationError):
+                abort(404, message=
+                    "The resource with id '{}' does not exist"
+                    .format(kwargs['id'])
+                )
+
+            if 'em_doc1' in kwargs:
+
+                self.target_document_obj = getattr(self.document, kwargs['em_doc1'])
+                self.target_serializer = getattr(self.serializer, kwargs['em_doc1'])
+
+                if isinstance(self.target_document_obj, fields.ListField):
+                    self.target_document_obj.objects = self.target_document[kwargs['em_doc1']]
+                    self.target_serializer = self.target_serializer.sub_field.sub_serializer
+
+                self.target_document = None
+
+        else:
+
+            self.target_document_obj = self.document
+            self.target_document = None
+            self.target_serializer = self.serializer
+
+    def all_documents(self):
+        """
+        Returns all the documents that are exposed by this resource. By
+        default it will return all the documents that are associated to
+        the document Class `self.target_document`.
+
+        You can overwrite this method to limit the documents exposed in
+        this resource.
+        """
+        return self.document.objects
+
     def get(self, *args, **kwargs):
         """
         Handles a GET request.
@@ -111,14 +160,14 @@ class MongoEngineResource(Resource):
         """
         Returns the provided MongoEngine document serialized.
         """
-        return self.serializer.serialize(document)
+        return self.target_serializer.serialize(document)
 
     def get_list_serialized(self, queryset):
         """
         Returns a list of serialized documents from the provided
         MongoEngine queryset.
         """
-        return [self.serializer.serialize(d) for d in queryset]
+        return [self.target_serializer.serialize(d) for d in queryset]
 
     def get_data(self, *args, **kwargs):
         """
@@ -133,7 +182,7 @@ class MongoEngineResource(Resource):
 
         You can overwrite this method to alter this behaviour.
         """
-        if 'id' in kwargs:
+        if self.target_document:
             return self.get_item(*args, **kwargs)
         else:
             return self.get_list(*args, **kwargs)
@@ -142,13 +191,7 @@ class MongoEngineResource(Resource):
         """
         Returns the document that should be returned on a GET request.
         """
-        try:
-            return self.document.objects.get(id=kwargs['id'])
-        except (DoesNotExist, ValidationError):
-            abort(404, message=
-                "The resource with id '{}' does not exist"
-                .format(kwargs['id'])
-            )
+        return self.target_document
 
     def get_list(self, *args, **kwargs):
         """
@@ -156,11 +199,31 @@ class MongoEngineResource(Resource):
         request.
         """
         if request.args:
-            return self.document.objects.filter(
+            return self._all_target_documents().filter(
                 **self._serialize_query(request.args.to_dict())
             )
         else:
-            return self.document.objects
+            return self._all_target_documents()
+
+    def _all_target_documents(self):
+        """
+        Returns all documents that are exposed in this request.
+        """
+        # If the target document is the base document, use the
+        # `all_documents()` method, otherwise, use the `objects`
+        # property, because target documents are subsets of the base
+        # document and won't have to be limitted.
+        if self._is_base_document():
+            return self.all_documents()
+        else:
+            return self.target_document_obj.objects
+
+    def _is_base_document(self):
+        """
+        Returns True if `self.target_document_obj` is the base document
+        (`self.document`). Otherwise returns False.
+        """
+        return self.target_document_obj is self.document
 
     def _serialize_query(self, query):
         """
@@ -266,7 +329,7 @@ class MongoEngineResource(Resource):
             else:
                 raise InvalidQueryField(field)
 
-        return deserialize_query_value(field_trace, self.serializer)
+        return deserialize_query_value(field_trace, self.target_serializer)
 
     def post(self, *args, **kwargs):
         """
@@ -296,12 +359,12 @@ class MongoEngineResource(Resource):
             response = []
             for document in documents:
                 self._save_document(document)
-                response.append(self.serializer.serialize(document))
+                response.append(self.target_serializer.serialize(document))
 
         else:
             document = self._process_document(request_data)
             self._save_document(document)
-            response = self.serializer.serialize(document)
+            response = self.target_serializer.serialize(document)
 
         return response, 201
 
@@ -321,7 +384,7 @@ class MongoEngineResource(Resource):
             document=put_document
         )
         self._save_document(document)
-        response = self.serializer.serialize(document)
+        response = self.target_serializer.serialize(document)
 
         if put_document:
             status_code = 200
@@ -345,34 +408,24 @@ class MongoEngineResource(Resource):
         You can overwrite this method to alter the default behaviour.
         """
 
-        try:
-            document_id = kwargs['id']
-        except KeyError:
+        if not self.target_document:
             abort(400, message="No id provided")
 
-        try:
-            return self.document.objects.get(id=document_id)
-        except (DoesNotExist, ValidationError):
-            abort(404, message=
-                "Resource with id '{}' does not exist".format(document_id)
-            )
+        return self.target_document
 
     def delete(self, *args, **kwargs):
         """
         Processes a HTTP DELETE request.
         """
 
-        try:
-            document_id = kwargs['id']
-        except KeyError:
+        if not self.target_document:
             abort(400, message="No id provided")
 
-        try:
-            self.document.objects.get(id=document_id).delete()
-        except DoesNotExist:
-            abort(404, message=
-                "Resource with id '{}' does not exist".format(document_id)
-            )
+        if self._is_base_document():
+            self.target_document.delete()
+        else:
+            # TODO: remove the target document from the base document and save the base document
+            pass
 
         return {
             'details': "Successfully deleted resource with id: {}".format(id)
@@ -487,7 +540,7 @@ class MongoEngineResource(Resource):
 
         try:
 
-            return self.serializer.deserialize(data)
+            return self.target_serializer.deserialize(data)
 
         except UnknownField, error:
 
@@ -555,7 +608,7 @@ class MongoEngineResource(Resource):
         Creates a document with the provided data.
         Will return the created document.
         """
-        return self.document(**data)
+        return self.target_document_obj(**data)
 
     def _update_document(self, document, data):
         """
@@ -716,7 +769,7 @@ class MongoEngineResource(Resource):
 
             return document
 
-        return update_document(document, data, self.serializer)
+        return update_document(document, data, self.target_serializer)
 
     def _save_document(self, document):
         """
@@ -847,7 +900,7 @@ class MongoEngineResource(Resource):
             else:
                 return error.message
 
-        return filter_errors(errors, self.serializer)
+        return filter_errors(errors, self.target_serializer)
 
     def allow_not_unique_error(self, error):
         """
