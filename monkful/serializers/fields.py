@@ -229,7 +229,11 @@ class ListField(Field):
             raise ValueInvalidType(self, field_list)
 
         # Uses the `sub_serializer` to deserialize the items in the list
-        return [self.sub_field.deserialize(item) for item in field_list]
+        return [
+            self.sub_field.deserialize(item)
+            for item in field_list
+            if item is not None # Don't allow `None` values in lists
+        ]
 
 class ObjectIdField(Field):
     """
