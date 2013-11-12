@@ -1,4 +1,4 @@
-from flask import request
+from fgask import request
 from flask.ext.restful import Resource, abort
 from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
@@ -83,13 +83,13 @@ class MongoEngineResource(Resource):
 
         if 'id' in kwargs:
 
-            self.target_document_obj = self.document
-            self.target_serializer = self.serializer
-
-            self.target_document = self.target_document_instance(
+            self.target_path = []
+            self.base_target_document = self.target_document_instance(
                 self.target_document_obj,
                 kwargs['id']
             )
+            self.target_document = self.base_target_document
+            self.target_list = None
 
             if not self.target_document:
                 abort(404, message=
@@ -99,14 +99,15 @@ class MongoEngineResource(Resource):
 
             if 'em_doc1' in kwargs:
 
-                self.target_document_obj = getattr(self.document, kwargs['em_doc1'])
+                self.target_document_obj = getattr(self.target_document_obj, kwargs['em_doc1'])
                 self.target_serializer = getattr(self.serializer, kwargs['em_doc1'])
+                self.target_path.append(kwargs['em_doc1'])
 
                 if isinstance(self.target_document_obj, fields.ListField):
-                    self.target_document_obj.objects = self.target_document[kwargs['em_doc1']]
+                    self.target_document_obj = self.target_document_obj.field.document_type
                     self.target_serializer = self.target_serializer.sub_field.sub_serializer
-
-                self.target_document = None
+                    self.target_list = self.target_document[kwargs['em_doc1']]
+                    self.target_document = None
 
         else:
 
@@ -161,10 +162,10 @@ class MongoEngineResource(Resource):
 
         data = self.get_data(*args, **kwargs)
 
-        if self.is_document(data):
-            return self.get_document_serialized(data)
-        else:
+        if self.target_list:
             return self.get_list_serialized(data)
+        else:
+            return self.get_document_serialized(data)
 
     def is_document(self, data):
         """
