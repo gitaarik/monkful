@@ -1,4 +1,4 @@
-from fgask import request
+from flask import request
 from flask.ext.restful import Resource, abort
 from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
@@ -81,6 +81,11 @@ class MongoEngineResource(Resource):
         Initiates the target document and target serializer.
         """
 
+        self.target_document_obj = self.document
+        self.target_document = None
+        self.target_list = self.all_documents()
+        self.target_serializer = self.serializer
+
         if 'id' in kwargs:
 
             self.target_path = []
@@ -108,12 +113,6 @@ class MongoEngineResource(Resource):
                     self.target_serializer = self.target_serializer.sub_field.sub_serializer
                     self.target_list = self.target_document[kwargs['em_doc1']]
                     self.target_document = None
-
-        else:
-
-            self.target_document_obj = self.document
-            self.target_document = None
-            self.target_serializer = self.serializer
 
     def target_document_instance(self, document_obj, identifier):
         """
@@ -160,12 +159,14 @@ class MongoEngineResource(Resource):
         will raise a 404.
         """
 
-        data = self.get_data(*args, **kwargs)
-
         if self.target_list:
-            return self.get_list_serialized(data)
+            return self.get_list_serialized(
+                self.get_list(*args, **kwargs)
+            )
         else:
-            return self.get_document_serialized(data)
+            return self.get_document_serialized(
+                self.get_document(*args, **kwargs)
+            )
 
     def is_document(self, data):
         """
@@ -190,24 +191,6 @@ class MongoEngineResource(Resource):
         MongoEngine queryset.
         """
         return [self.target_serializer.serialize(d) for d in queryset]
-
-    def get_data(self, *args, **kwargs):
-        """
-        Returns the data that should be returned on GET requests.
-
-        The default behaviour is:
-        If there's an `id` parameter in the url variables it will try to
-        find the document with that id and return that document.
-        If there's a search query in the url it will try to find
-        documents with that search query and return those.
-        Else it will return all documents.
-
-        You can overwrite this method to alter this behaviour.
-        """
-        if self.target_document:
-            return self.get_document(*args, **kwargs)
-        else:
-            return self.get_list(*args, **kwargs)
 
     def get_document(self, *args, **kwargs):
         """
@@ -238,7 +221,7 @@ class MongoEngineResource(Resource):
         if self.is_base_document():
             return self.all_documents()
         else:
-            return self.target_document_obj.objects
+            return self.target_list
 
     def is_base_document(self):
         """
