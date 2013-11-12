@@ -32,3 +32,26 @@ def json_type(var):
         return 'null'
     else:
         return 'unknown'
+
+def create_deep_dict(layers, value):
+
+    layers = layers[:]
+    data = {}
+    layer = layers.pop(0)
+
+    if layers:
+        data[layer] = create_deep_dict(layers, value)
+    else:
+        data[layer] = value
+
+    return data
+
+def deep_dict_value(layers, data):
+
+    layers = layers[:]
+    layer = layers.pop(0)
+
+    if layers:
+        return deep_dict_value(layers, data[layer])
+    else:
+        return data[layer]

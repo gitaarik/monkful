@@ -8,7 +8,7 @@ from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
-from .helpers import json_type
+from .helpers import json_type, create_deep_dict, deep_dict_value
 from .exceptions import InvalidQueryField
 
 
@@ -23,7 +23,7 @@ class MongoEngineResource(Resource):
         # Call authenticate for each request
         self.authenticate()
         self.check_request_content_type_header()
-        self.init_target_document_and_serializer(*args, **kwargs)
+        self._init_target(*args, **kwargs)
         return super(MongoEngineResource, self).dispatch_request(*args, **kwargs)
 
     def authenticate(self):
@@ -76,7 +76,7 @@ class MongoEngineResource(Resource):
                 .format(charset)
             )
 
-    def init_target_document_and_serializer(self, *args, **kwargs):
+    def _init_target(self, *args, **kwargs):
         """
         Initiates the target document and target serializer.
         """
@@ -110,7 +110,7 @@ class MongoEngineResource(Resource):
 
                 if isinstance(self.target_document_obj, fields.ListField):
                     self.target_document_obj = self.target_document_obj.field.document_type
-                    self.target_serializer = self.target_serializer.sub_field.sub_serializer
+                    #self.target_serializer = self.target_serializer.sub_field.sub_serializer
                     self.target_list = self.target_document[kwargs['em_doc1']]
                     self.target_document = None
 
@@ -160,9 +160,15 @@ class MongoEngineResource(Resource):
         """
 
         if self.target_list:
-            return self.get_list_serialized(
-                self.get_list(*args, **kwargs)
-            )
+
+            if self.is_base_document():
+                return self.get_list_serialized(
+                    self.get_list(*args, **kwargs)
+                )
+            else:
+                return self.target_serializer.serialize(
+                    self.get_list(*args, **kwargs)
+                )
         else:
             return self.get_document_serialized(
                 self.get_document(*args, **kwargs)
@@ -352,19 +358,41 @@ class MongoEngineResource(Resource):
         if isinstance(request_data, list):
             # Process multiple documents
 
-            documents = []
-
-            for item in request_data:
-                documents.append(self._process_document(item))
-
-            # If we come here, it means `_process_document()` didn't
-            # `abort()`, so the request data was not malformed, so we
-            # can save the documents now.
-
             response = []
-            for document in documents:
-                self._save_document(document)
-                response.append(self.target_serializer.serialize(document))
+
+            if self.is_base_document():
+
+                documents = []
+
+                for item in request_data:
+                    documents.append(self._process_document(item))
+
+                # If we come here, it means `_process_document()` didn't
+                # `abort()`, so the request data was not malformed, so we
+                # can save the documents now.
+
+                for document in documents:
+                    self._save_document(document)
+                    response.append(self.target_serializer.serialize(document))
+
+            else:
+
+                update_data = create_deep_dict(self.target_path, request_data)
+
+                self._update_document(
+                    self.base_target_document,
+                    update_data,
+                    serializer=self.serializer
+                )
+
+                self._save_document(self.base_target_document)
+
+                response = self.target_serializer.serialize(
+                   deep_dict_value(
+                       self.target_path,
+                       self.base_target_document
+                   )
+                )
 
         else:
             document = self._process_document(request_data)
@@ -615,7 +643,7 @@ class MongoEngineResource(Resource):
         """
         return self.target_document_obj(**data)
 
-    def _update_document(self, document, data):
+    def _update_document(self, document, data, serializer=None):
         """
         Updates the provided `document` with the provided `data`.
 
@@ -774,7 +802,10 @@ class MongoEngineResource(Resource):
 
             return document
 
-        return update_document(document, data, self.target_serializer)
+        if not serializer:
+            serializer = self.target_serializer
+
+        return update_document(document, data, serializer)
 
     def _save_document(self, document):
         """
