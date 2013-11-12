@@ -9,6 +9,7 @@ class CommentSerializer(Serializer):
 
 
 class ArticleSerializer(Serializer):
+    id = fields.ObjectIdField(identifier=True)
     title = fields.StringField()
     text = fields.StringField()
     comments = fields.ListField(fields.DocumentField(CommentSerializer))

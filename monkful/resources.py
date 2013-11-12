@@ -107,11 +107,13 @@ class MongoEngineResource(Resource):
                 self.target_document_obj = getattr(self.target_document_obj, kwargs['em_doc1'])
                 self.target_serializer = getattr(self.serializer, kwargs['em_doc1'])
                 self.target_path.append(kwargs['em_doc1'])
+                self.target_list = None
+                self.target_document = getattr(self.target_document, kwargs['em_doc1'])
 
                 if isinstance(self.target_document_obj, fields.ListField):
                     self.target_document_obj = self.target_document_obj.field.document_type
                     #self.target_serializer = self.target_serializer.sub_field.sub_serializer
-                    self.target_list = self.target_document[kwargs['em_doc1']]
+                    self.target_list = self.target_document
                     self.target_document = None
 
     def target_document_instance(self, document_obj, identifier):
@@ -159,7 +161,13 @@ class MongoEngineResource(Resource):
         will raise a 404.
         """
 
-        if self.target_list:
+        if self.target_list is None:
+
+            return self.get_document_serialized(
+                self.get_document(*args, **kwargs)
+            )
+
+        else:
 
             if self.is_base_document():
                 return self.get_list_serialized(
@@ -169,10 +177,6 @@ class MongoEngineResource(Resource):
                 return self.target_serializer.serialize(
                     self.get_list(*args, **kwargs)
                 )
-        else:
-            return self.get_document_serialized(
-                self.get_document(*args, **kwargs)
-            )
 
     def is_document(self, data):
         """
@@ -377,7 +381,10 @@ class MongoEngineResource(Resource):
 
             else:
 
-                update_data = create_deep_dict(self.target_path, request_data)
+                update_data = create_deep_dict(
+                    self.target_path,
+                    self.target_serializer.deserialize(request_data)
+                )
 
                 self._update_document(
                     self.base_target_document,
@@ -440,10 +447,6 @@ class MongoEngineResource(Resource):
 
         You can overwrite this method to alter the default behaviour.
         """
-
-        if not self.target_document:
-            abort(400, message="No id provided")
-
         return self.target_document
 
     def delete(self, *args, **kwargs):
