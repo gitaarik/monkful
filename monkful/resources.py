@@ -118,7 +118,6 @@ class MongoEngineResource(Resource):
 
                 if isinstance(target_document_obj, fields.ListField):
                     target_document_obj = target_document_obj.field.document_type
-                    #self.target_serializer = self.target_serializer.sub_field.sub_serializer
                     self.target_list = self.target_document
                     self.target_document = None
 
