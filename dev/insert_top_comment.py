@@ -1,11 +1,12 @@
 import requests
 import json
-from datetime import datetime
+from random import randint
 from pprint import pprint
 
+article_id = '52839c9aaa26499cfc7e1dc4'
 
 data = {
-    'text': 'haho'
+    'text': 'haho: {}'.format(randint(0, 100))
 }
 
 print 'put data:\n'
@@ -14,7 +15,7 @@ pprint(data)
 headers = {'content-type': 'application/json; charset=utf-8'}
 
 response = requests.put(
-    'http://localhost:5000/articles/5282910aaa26493d25a18443/top_comment/',
+    'http://localhost:5000/articles/{}/top_comment/'.format(article_id),
     data=json.dumps(data),
     headers=headers
 )

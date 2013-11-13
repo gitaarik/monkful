@@ -4,6 +4,7 @@ from random import randint
 from datetime import datetime
 from pprint import pprint
 
+article_id = '52839c9aaa26499cfc7e1dc4'
 
 data = [
     {
@@ -23,8 +24,8 @@ pprint(data)
 
 headers = {'content-type': 'application/json; charset=utf-8'}
 
-response = requests.post(
-    'http://localhost:5000/articles/5282910aaa26493d25a18443/comments/',
+response = requests.put(
+    'http://localhost:5000/articles/{}/comments/'.format(article_id),
     data=json.dumps(data),
     headers=headers
 )

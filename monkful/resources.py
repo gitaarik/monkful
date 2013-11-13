@@ -81,70 +81,46 @@ class MongoEngineResource(Resource):
         Initiates the target document and target serializer.
         """
 
+        self.target_path = []
+
         if 'path' in kwargs:
 
             self.target_path = kwargs['path'].split('/')
-            self.target_path.pop(0)
 
             if self.target_path and not self.target_path[-1]:
                 self.target_path.pop()
 
-        import ipdb; ipdb.set_trace()
-
-        self.target_document_obj = self.document
+        target_document_obj = self.document
         self.target_document = None
         self.target_list = self.all_documents()
         self.target_serializer = self.serializer
 
-        if 'id' in kwargs:
+        if self.target_path:
 
-            self.target_path = []
-            self.base_target_document = self.target_document_instance(
-                self.target_document_obj,
-                kwargs['id']
-            )
+            identifier = self.target_path[0]
+            self.base_target_document = target_document_obj.objects.get(id=identifier)
             self.target_document = self.base_target_document
             self.target_list = None
 
             if not self.target_document:
                 abort(404, message=
                     "The resource specified with identifier '{}' could not be found"
-                    .format(kwargs['id'])
+                    .format(identifier)
                 )
 
-            if 'em_doc1' in kwargs:
+            if len(self.target_path) > 1:
 
-                self.target_document_obj = getattr(self.target_document_obj, kwargs['em_doc1'])
-                self.target_serializer = getattr(self.serializer, kwargs['em_doc1'])
-                self.target_path.append(kwargs['em_doc1'])
+                identifier = self.target_path[1]
+                target_document_obj = getattr(target_document_obj, identifier)
+                self.target_serializer = getattr(self.serializer, identifier)
                 self.target_list = None
-                self.target_document = getattr(self.target_document, kwargs['em_doc1'])
+                self.target_document = getattr(self.target_document, identifier)
 
-                if isinstance(self.target_document_obj, fields.ListField):
-                    self.target_document_obj = self.target_document_obj.field.document_type
+                if isinstance(target_document_obj, fields.ListField):
+                    target_document_obj = target_document_obj.field.document_type
                     #self.target_serializer = self.target_serializer.sub_field.sub_serializer
                     self.target_list = self.target_document
                     self.target_document = None
-
-    def target_document_instance(self, document_obj, identifier):
-        """
-        Get a document instance from the provided `document_obj` based
-        on the `identifier`.
-        """
-        if self.is_base_document():
-            return self.document_instance(identifier)
-        else:
-            # TODO: get target document based on `identifier`
-            pass
-
-    def document_instance(self, identifier):
-        """
-        Get a document instance based on `identifier`.
-        """
-        try:
-            return self.document.objects.get(id=identifier)
-        except (DoesNotExist, ValidationError):
-            return False
 
     def all_documents(self):
         """
@@ -245,10 +221,11 @@ class MongoEngineResource(Resource):
 
     def is_base_document(self):
         """
-        Returns True if `self.target_document_obj` is the base document
-        (`self.document`). Otherwise returns False.
+        Returns True if the request is targetted at the base document.
+        Returns False if the request is targetted at any deeper level
+        inside the document (like list fields or embedded documents).
         """
-        return self.target_document_obj is self.document
+        return not len(self.target_path) > 1
 
     def _serialize_query(self, query):
         """
@@ -392,8 +369,8 @@ class MongoEngineResource(Resource):
             else:
 
                 update_data = create_deep_dict(
-                    self.target_path,
-                    self.target_serializer.deserialize(request_data)
+                    self.target_serializer.deserialize(request_data),
+                    self.target_path[1:]
                 )
 
                 self._update_document(
@@ -406,8 +383,8 @@ class MongoEngineResource(Resource):
 
                 response = self.target_serializer.serialize(
                    deep_dict_value(
-                       self.target_path,
-                       self.base_target_document
+                       self.base_target_document,
+                       self.target_path[1:]
                    )
                 )
 
@@ -429,17 +406,43 @@ class MongoEngineResource(Resource):
 
         put_document = self.put_document(*args, **kwargs)
 
-        document = self._process_document(
-            self._request_data(),
-            document=put_document
-        )
-        self._save_document(document)
-        response = self.target_serializer.serialize(document)
+        if self.is_base_document():
 
-        if put_document:
-            status_code = 200
+            document = self._process_document(
+                self._request_data(),
+                document=put_document
+            )
+            self._save_document(document)
+            response = self.target_serializer.serialize(document)
+
+            if put_document:
+                status_code = 200
+            else:
+                status_code = 201
+
         else:
-            status_code = 201
+
+            update_data = create_deep_dict(
+                self.target_serializer.deserialize(self._request_data()),
+                self.target_path[1:]
+            )
+
+            self._update_document(
+                self.base_target_document,
+                update_data,
+                serializer=self.serializer
+            )
+
+            self._save_document(self.base_target_document)
+
+            response = self.target_serializer.serialize(
+               deep_dict_value(
+                   self.base_target_document,
+                   self.target_path[1:]
+               )
+            )
+
+            status_code = 200
 
         return response, status_code
 
@@ -654,7 +657,7 @@ class MongoEngineResource(Resource):
         Creates a document with the provided data.
         Will return the created document.
         """
-        return self.target_document_obj(**data)
+        return self.document(**data)
 
     def _update_document(self, document, data, serializer=None):
         """
