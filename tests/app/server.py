@@ -10,8 +10,7 @@ api = restful.Api(app)
 api.add_resource(
     ArticleResource,
     '/articles/',
-    '/articles/<id>/',
-    '/articles/<id>/<em_doc1>/'
+    '/articles/<path:path>'
 )
 
 if __name__ == '__main__':

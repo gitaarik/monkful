@@ -81,6 +81,16 @@ class MongoEngineResource(Resource):
         Initiates the target document and target serializer.
         """
 
+        if 'path' in kwargs:
+
+            self.target_path = kwargs['path'].split('/')
+            self.target_path.pop(0)
+
+            if self.target_path and not self.target_path[-1]:
+                self.target_path.pop()
+
+        import ipdb; ipdb.set_trace()
+
         self.target_document_obj = self.document
         self.target_document = None
         self.target_list = self.all_documents()

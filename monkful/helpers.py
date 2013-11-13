@@ -33,25 +33,47 @@ def json_type(var):
     else:
         return 'unknown'
 
-def create_deep_dict(layers, value):
+def create_deep_dict(value, layers):
+    """
+    Creates and returns a dictionary with nested layers and assign
+    `value` to the last layer.
 
-    layers = layers[:]
-    data = {}
-    layer = layers.pop(0)
+    For example:
 
-    if layers:
-        data[layer] = create_deep_dict(layers, value)
-    else:
-        data[layer] = value
+        create_deep_dict('hello', ['blog', 'post', 'text'])
+
+    Will return:
+
+        { 'blog' { 'post': { 'text': 'hello' } } }
+    """
+
+    orig_data = {}
+    data = orig_data
+    last_layer = layers[-1]
+
+    for layer in layers[:-1]:
+        data[layer] = {}
+        data = data[layer]
+
+    data[last_layer] = value
+
+    return orig_data
+
+def deep_dict_value(data, layers):
+    """
+    Returns the value from a dictionary at a certain nested layer.
+
+    For example:
+
+        data = { 'blog' { 'post': { 'text': 'hello' } } }
+        deep_dict_value(data, ['blog', 'post', 'text'])
+
+    Will return:
+
+        'hello'
+    """
+
+    for layer in layers:
+        data = data[layer]
 
     return data
-
-def deep_dict_value(layers, data):
-
-    layers = layers[:]
-    layer = layers.pop(0)
-
-    if layers:
-        return deep_dict_value(layers, data[layer])
-    else:
-        return data[layer]
