@@ -94,6 +94,7 @@ class MongoEngineResource(Resource):
 
         target_document_obj = self.document
         self.target_document = None
+        self.base_document = True
         self.target_list = self.all_documents()
         self.target_serializer = self.serializer
 
@@ -112,19 +113,29 @@ class MongoEngineResource(Resource):
 
             self.target_document = self.base_target_document
             self.target_list = None
+            self.target_path.pop(0)
 
-            if len(self.target_path) > 1:
+            if self.target_path:
 
-                identifier = self.target_path[1]
-                target_document_obj = getattr(target_document_obj, identifier)
-                self.target_serializer = getattr(self.serializer, identifier)
-                self.target_list = None
-                self.target_document = getattr(self.target_document, identifier)
+                self.base_document = False
 
-                if isinstance(target_document_obj, fields.ListField):
-                    target_document_obj = target_document_obj.field.document_type
-                    self.target_list = self.target_document
-                    self.target_document = None
+                def init_deep_target(target_path, target_document_obj):
+                    identifier = self.target_path[0]
+                    target_document_obj = getattr(target_document_obj, identifier)
+                    self.target_serializer = getattr(self.serializer, identifier)
+                    self.target_list = None
+                    self.target_document = getattr(self.target_document, identifier)
+
+                    if isinstance(target_document_obj, fields.ListField):
+                        target_document_obj = target_document_obj.field.document_type
+                        self.target_list = self.target_document
+                        self.target_document = None
+
+                    self.target_path.pop(0)
+                    if self.target_path:
+                        init_deep_target(self.target_path, target_document_obj)
+
+                init_deep_target(self.target_path, target_document_obj)
 
     def all_documents(self):
         """
@@ -229,7 +240,7 @@ class MongoEngineResource(Resource):
         Returns False if the request is targetted at any deeper level
         inside the document (like list fields or embedded documents).
         """
-        return not len(self.target_path) > 1
+        return self.base_document
 
     def _serialize_query(self, query):
         """
