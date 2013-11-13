@@ -87,6 +87,8 @@ class MongoEngineResource(Resource):
 
             self.target_path = kwargs['path'].split('/')
 
+            # the last item is usually an empty entry (because it splits
+            # on the last slash too) so if it's empty, pop it.
             if self.target_path and not self.target_path[-1]:
                 self.target_path.pop()
 
@@ -98,15 +100,18 @@ class MongoEngineResource(Resource):
         if self.target_path:
 
             identifier = self.target_path[0]
-            self.base_target_document = target_document_obj.objects.get(id=identifier)
+
+            try:
+                self.base_target_document = target_document_obj.objects.get(
+                    id=identifier)
+            except DoesNotExist:
+                abort(404, message=
+                    "The resource specified with identifier '{}' could not be "
+                    "found".format(identifier)
+                )
+
             self.target_document = self.base_target_document
             self.target_list = None
-
-            if not self.target_document:
-                abort(404, message=
-                    "The resource specified with identifier '{}' could not be found"
-                    .format(identifier)
-                )
 
             if len(self.target_path) > 1:
 
