@@ -93,14 +93,15 @@ class MongoEngineResource(Resource):
                 self.target_path.pop()
 
         target_document_obj = self.document
+        target_path = self.target_path[:]
         self.target_document = None
         self.base_document = True
         self.target_list = self.all_documents()
         self.target_serializer = self.serializer
 
-        if self.target_path:
+        if target_path:
 
-            identifier = self.target_path[0]
+            identifier = target_path[0]
 
             try:
                 self.base_target_document = target_document_obj.objects.get(
@@ -113,29 +114,71 @@ class MongoEngineResource(Resource):
 
             self.target_document = self.base_target_document
             self.target_list = None
-            self.target_path.pop(0)
+            target_path.pop(0)
 
-            if self.target_path:
+            if target_path:
 
                 self.base_document = False
 
-                def init_deep_target(target_path, target_document_obj):
-                    identifier = self.target_path[0]
-                    target_document_obj = getattr(target_document_obj, identifier)
-                    self.target_serializer = getattr(self.serializer, identifier)
-                    self.target_list = None
-                    self.target_document = getattr(self.target_document, identifier)
+                def init_deep_target(target_path, target_document_obj, depth):
 
-                    if isinstance(target_document_obj, fields.ListField):
-                        target_document_obj = target_document_obj.field.document_type
-                        self.target_list = self.target_document
-                        self.target_document = None
+                    depth += 1
+                    identifier = target_path[0]
 
-                    self.target_path.pop(0)
-                    if self.target_path:
-                        init_deep_target(self.target_path, target_document_obj)
+                    if self.target_list:
 
-                init_deep_target(self.target_path, target_document_obj)
+                        identifier_field = None
+                        self.target_serializer = (
+                            self.target_serializer.sub_field.sub_serializer
+                        )
+
+                        self.target_path.insert(depth, list)
+
+                        for fieldname, field in (
+                            self.target_serializer._fields().items()
+                        ):
+                            if field.identifier:
+                                identifier_field = fieldname
+                                identifier = field.deserialize(identifier)
+
+                        if identifier_field:
+
+                            for document in self.target_list:
+                                if getattr(document, identifier_field) == identifier:
+                                    self.target_list = None
+                                    self.target_document = document
+                                    break
+
+                            if not self.target_document:
+                                abort(404, message=
+                                    "The resource specified with identifier '{}' could not be "
+                                    "found".format(identifier)
+                                )
+
+                        else:
+
+                            abort(404, message=
+                                "The resource specified with identifier '{}' could not be "
+                                "found".format(identifier)
+                            )
+
+                    else:
+
+                        target_document_obj = getattr(target_document_obj, identifier)
+                        self.target_serializer = getattr(self.serializer, identifier)
+                        self.target_list = None
+                        self.target_document = getattr(self.target_document, identifier)
+
+                        if isinstance(target_document_obj, fields.ListField):
+                            #target_document_obj = target_document_obj.field.document_type
+                            self.target_list = self.target_document
+                            self.target_document = None
+
+                    target_path.pop(0)
+                    if target_path:
+                        init_deep_target(target_path, target_document_obj, depth)
+
+                init_deep_target(target_path, target_document_obj, 0)
 
     def all_documents(self):
         """
