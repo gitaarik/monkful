@@ -4,8 +4,8 @@ from random import randint
 from datetime import datetime
 from pprint import pprint
 
-article_id = '5283b1e2aa2649a692a03415'
-comment_id = '5283b1e2aa2649a692a03410'
+article_id = '52862ac2aa2649765afe3bed'
+comment_id = '52862ac2aa2649765afe3be8'
 
 data = {
     'text': "wajozors! {}".format(randint(0, 100)),

@@ -122,8 +122,8 @@ class MongoEngineResource(Resource):
 
                 def init_deep_target(target_path, target_document_obj, depth):
 
-                    depth += 1
                     identifier = target_path[0]
+                    depth += 1
 
                     if self.target_list:
 
@@ -131,8 +131,6 @@ class MongoEngineResource(Resource):
                         self.target_serializer = (
                             self.target_serializer.sub_field.sub_serializer
                         )
-
-                        self.target_path.insert(depth, list)
 
                         for fieldname, field in (
                             self.target_serializer._fields().items()
@@ -142,6 +140,12 @@ class MongoEngineResource(Resource):
                                 identifier = field.deserialize(identifier)
 
                         if identifier_field:
+
+                            self.target_path[depth] = [
+                                identifier_field,
+                                self.target_serializer._fields()[identifier_field]
+                                .deserialize(self.target_path[depth])
+                            ]
 
                             for document in self.target_list:
                                 if getattr(document, identifier_field) == identifier:
@@ -488,16 +492,19 @@ class MongoEngineResource(Resource):
             self._update_document(
                 self.base_target_document,
                 update_data,
-                serializer=self.serializer
+                serializer=self.serializer,
+                update_lists=True
             )
 
             self._save_document(self.base_target_document)
 
+            joho = deep_dict_value(
+               self.base_target_document,
+               self.target_path[1:]
+            )
+
             response = self.target_serializer.serialize(
-               deep_dict_value(
-                   self.base_target_document,
-                   self.target_path[1:]
-               )
+                joho
             )
 
             status_code = 200
@@ -717,7 +724,8 @@ class MongoEngineResource(Resource):
         """
         return self.document(**data)
 
-    def _update_document(self, document, data, serializer=None):
+    def _update_document(self, document, data, serializer=None,
+        update_lists=False):
         """
         Updates the provided `document` with the provided `data`.
 
@@ -745,26 +753,46 @@ class MongoEngineResource(Resource):
 
                 new_value = []
 
+                # Set the parent field so children can get
+                # information about their parent, as is used in
+                # `documentfield_value()`.
+                item_parent = {
+                    'field': field,
+                    'value': cur_value
+                }
+
+                if update_lists and isinstance(field.field, fields.EmbeddedDocumentField):
+
+                    identifier_field = None
+
+                    for fieldname, item_field in serializer.sub_field.sub_serializer._fields().items():
+                        if item_field.identifier:
+                            identifier_field = fieldname
+
+                    if identifier_field:
+
+                        for cur_value_item in cur_value:
+
+                            keep_value = True
+
+                            for item in data:
+                                if (
+                                    identifier_field in item and
+                                    cur_value_item[identifier_field] == item[identifier_field]
+                                ):
+                                    keep_value = False
+
+                            if keep_value:
+                                new_value.append(cur_value_item)
+
                 # Loop through the items in the `data`
                 for item in data:
-
-                    # Get the document's field instance for the field
-                    # encapsuled inside the list-field.
-                    field_item = field.field
-
-                    # Set the parent field so children can get
-                    # information about their parent, as is used in
-                    # `documentfield_value()`.
-                    item_parent = {
-                        'field': field,
-                        'value': cur_value
-                    }
 
                     # Append the value for the field returned by
                     # `field_value()`.
                     new_value.append(
                         field_value(
-                            field_item, None, item,
+                            field.field, None, item,
                             serializer.sub_field, item_parent
                         )
                     )
@@ -844,10 +872,7 @@ class MongoEngineResource(Resource):
 
             if isinstance(field, fields.ListField):
                 return listfield_value()
-            elif (
-                isinstance(field, fields.EmbeddedDocumentField) or
-                isinstance(field, fields.ReferenceField)
-            ):
+            elif isinstance(field, fields.EmbeddedDocumentField):
                 return documentfield_value()
             else:
                 return data

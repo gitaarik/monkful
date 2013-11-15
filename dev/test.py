@@ -1,50 +1,46 @@
-def create_deep_dict(value, layers):
+def deep_dict_value(data, layers):
     """
-    Creates and returns a dictionary with nested layers and assign
-    `value` to the last layer.
+    Returns the value from a dictionary at a certain nested layer.
 
     For example:
 
-        create_deep_dict('hello', ['blog', 'post', 'text'])
+        data = { 'blog' { 'post': { 'text': 'hello' } } }
+        deep_dict_value(data, ['blog', 'post', 'text'])
 
     Will return:
 
-        { 'blog' { 'post': { 'text': 'hello' } } }
+        'hello'
     """
 
-    orig_data = {}
-    data = orig_data
-    last_layer = layers[-1]
-
-    for layer in layers[:-1]:
-
-        if layer is list:
-            data = []
-            data.append({})
-            data = data[0]
+    for layer in layers:
+        if type(layer) == list:
+            for item in data:
+                if item[layer[0]] == layer[1]:
+                    data = item
+                    break
         else:
-            data[layer] = {}
             data = data[layer]
 
-    data[last_layer] = value
+    return data
 
-    return orig_data
-
-print create_deep_dict('jo', ['one', 'two', list, 'three', 'four'])
+print deep_dict_value(
+    {u'5283b1e2aa2649a692a03415': {u'comments': [{'wajooo': 'hoho', 'id': '52860473aa26496626ea3f5d'}]}},
+    [u'5283b1e2aa2649a692a03415', u'comments', ['id', '52860473aa26496626ea3f5d']]
+)
 
 """
 
+orig = [u'5283b1e2aa2649a692a03415', u'comments', u'52860473aa26496626ea3f5d']
+
+second = [u'5283b1e2aa2649a692a03415', u'comments', ['id', '52860473aa26496626ea3f5d']]
+
+
 {
-    'one': {
-        'two' [
-            {
-                'three': {
-                    'four': {
-                    }
-                }
-            }
-        ]
-    }
+    'comments': [
+        {
+            'id': '52860473aa26496626ea3f5d'
+        }
+    ]
 }
 
 """
