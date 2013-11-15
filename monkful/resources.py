@@ -151,6 +151,9 @@ class MongoEngineResource(Resource):
                                 if getattr(document, identifier_field) == identifier:
                                     self.target_list = None
                                     self.target_document = document
+                                    target_document_obj = (
+                                        self.document.comments.field.document_type
+                                    )
                                     break
 
                             if not self.target_document:
@@ -168,8 +171,22 @@ class MongoEngineResource(Resource):
 
                     else:
 
-                        target_document_obj = getattr(target_document_obj, identifier)
-                        self.target_serializer = getattr(self.serializer, identifier)
+                        try:
+                            self.target_serializer = getattr(self.target_serializer, identifier)
+                        except AttributeError:
+                            abort(404, message=
+                                "The resource specified with identifier '{}' could not be "
+                                "found".format(identifier)
+                            )
+
+                        try:
+                            target_document_obj = getattr(target_document_obj, identifier)
+                        except AttributeError:
+                            abort(404, message=
+                                "The resource specified with identifier '{}' could not be "
+                                "found".format(identifier)
+                            )
+
                         self.target_list = None
                         self.target_document = getattr(self.target_document, identifier)
 
