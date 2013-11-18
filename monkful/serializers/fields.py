@@ -38,7 +38,7 @@ class Field(object):
         else:
             return self._serialize(value)
 
-    def deserialize(self, value):
+    def deserialize(self, value, allow_readonly):
         """
         Returns the deserialized value of the field.
         """
@@ -46,7 +46,7 @@ class Field(object):
         if value is None:
             return None
         else:
-            return self._deserialize(value)
+            return self._deserialize(value, allow_readonly=allow_readonly)
 
     def master_field(self):
         """
@@ -81,7 +81,7 @@ class StringField(Field):
     def _serialize(self, value):
         return value
 
-    def _deserialize(self, value):
+    def _deserialize(self, value, **kwargs):
 
         if type(value) is not unicode:
             raise ValueInvalidType(self, value)
@@ -100,7 +100,7 @@ class IntField(Field):
     def _serialize(self, value):
         return value
 
-    def _deserialize(self, value):
+    def _deserialize(self, value, **kwargs):
 
         if type(value) is not int:
             raise ValueInvalidType(self, value)
@@ -119,7 +119,7 @@ class BooleanField(Field):
     def _serialize(self, value):
         return value
 
-    def _deserialize(self, value):
+    def _deserialize(self, value, **kwargs):
 
         if type(value) is not bool:
             raise ValueInvalidType(self, value)
@@ -138,7 +138,7 @@ class DateTimeField(Field):
     def _serialize(self, value):
         return value.isoformat()
 
-    def _deserialize(self, value):
+    def _deserialize(self, value, **kwargs):
 
         if type(value) is not unicode:
             raise ValueInvalidType(self, value)
@@ -172,13 +172,14 @@ class DocumentField(Field):
     def _serialize(self, data):
         return self.sub_serializer.serialize(data)
 
-    def _deserialize(self, data):
+    def _deserialize(self, data, allow_readonly, **kwargs):
 
         if type(data) is not dict:
             raise ValueInvalidType(self, data)
 
         try:
-            return self.sub_serializer.deserialize(data)
+            return self.sub_serializer.deserialize(data,
+                allow_readonly=allow_readonly)
         except FieldError as error:
             # If a `FieldError` exception occurs, we add this field as a
             # parent in the parent fields chain. This will be used for
@@ -223,14 +224,14 @@ class ListField(Field):
         # Uses the `sub_field` to serialize the items in the list
         return [self.sub_field.serialize(item) for item in field_list]
 
-    def _deserialize(self, field_list):
+    def _deserialize(self, field_list, allow_readonly, **kwargs):
 
         if type(field_list) is not list:
             raise ValueInvalidType(self, field_list)
 
         # Uses the `sub_serializer` to deserialize the items in the list
         return [
-            self.sub_field.deserialize(item)
+            self.sub_field.deserialize(item, allow_readonly=allow_readonly)
             for item in field_list
             if item is not None # Don't allow `None` values in lists
         ]
@@ -245,5 +246,5 @@ class ObjectIdField(Field):
     def _serialize(self, value):
         return unicode(value)
 
-    def _deserialize(self, value):
+    def _deserialize(self, value, **kwargs):
         return ObjectId(value)
