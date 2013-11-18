@@ -647,9 +647,6 @@ class MongoEngineResource(Resource):
         this way. Use a regular Python `list` for ListFields.
         """
 
-        def create_document(document_type, values):
-            return document_type(**values)
-
         def field_value(field, cur_value, data, serializer, parent=None):
             """
             Returns the value to use when updating `field` with `data`.
@@ -754,14 +751,14 @@ class MongoEngineResource(Resource):
 
                 # If there's a document to update, update this document,
                 # else create a new one.
-                if doc_to_update:
-                    return update_document(
-                        doc_to_update,
-                        data,
-                        serializer.sub_serializer
-                    )
-                else:
-                    return create_document(field.document_type, data)
+                if not doc_to_update:
+                    doc_to_update = field.document_type()
+
+                return update_document(
+                    doc_to_update,
+                    data,
+                    serializer.sub_serializer
+                )
 
             if isinstance(field, fields.ListField):
                 return listfield_value()
