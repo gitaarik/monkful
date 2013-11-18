@@ -449,7 +449,7 @@ class MongoEngineResource(Resource):
             pass
 
         return {
-            'details': "Successfully deleted resource with id: {}".format(id)
+            'details': "Successfully deleted resource"
         }
 
     def _request_data(self):
