@@ -179,6 +179,9 @@ class MongoEngineResource(Resource):
                                 "found".format(identifier)
                             )
 
+                        if isinstance(self.target_serializer, serializer_fields.DocumentField):
+                            self.target_serializer = self.target_serializer.sub_serializer
+
                         try:
                             target_document_obj = getattr(target_document_obj, identifier)
                         except AttributeError:
@@ -186,6 +189,9 @@ class MongoEngineResource(Resource):
                                 "The resource specified with identifier '{}' could not be "
                                 "found".format(identifier)
                             )
+
+                        if isinstance(target_document_obj, fields.EmbeddedDocumentField):
+                            target_document_obj = target_document_obj.document_type
 
                         self.target_list = None
                         self.target_document = getattr(self.target_document, identifier)
