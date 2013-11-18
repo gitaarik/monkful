@@ -651,7 +651,7 @@ class MongoEngineResource(Resource):
             return self._update_document(document, data)
 
         else:
-            return self._create_document(data, self._deserialize(data))
+            return self._create_document(self._deserialize(data))
 
     def _deserialize(self, data, allow_readonly=False):
         """
@@ -763,9 +763,6 @@ class MongoEngineResource(Resource):
         values as values. Also nested documents should be represented
         this way. Use a regular Python `list` for ListFields.
         """
-
-        def create_document(document_type, values):
-            return document_type(**values)
 
         def field_value(field, cur_value, data, serializer, parent=None):
             """
@@ -891,14 +888,14 @@ class MongoEngineResource(Resource):
 
                 # If there's a document to update, update this document,
                 # else create a new one.
-                if doc_to_update:
-                    return update_document(
-                        doc_to_update,
-                        data,
-                        serializer.sub_serializer
-                    )
-                else:
-                    return create_document(field.document_type, data)
+                if not doc_to_update:
+                    doc_to_update = field.document_type()
+
+                return update_document(
+                    doc_to_update,
+                    data,
+                    serializer.sub_serializer
+                )
 
             if isinstance(field, fields.ListField):
                 return listfield_value()
