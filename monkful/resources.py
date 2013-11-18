@@ -535,7 +535,7 @@ class MongoEngineResource(Resource):
             return self._update_document(document, data)
 
         else:
-            return self._create_document(data, self._deserialize(data))
+            return self._create_document(self._deserialize(data))
 
     def _deserialize(self, data, allow_readonly=False):
         """
