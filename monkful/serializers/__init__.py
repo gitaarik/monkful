@@ -37,7 +37,7 @@ class Serializer(object):
             if not field.writeonly
         }
 
-    def deserialize(self, data):
+    def deserialize(self, data, allow_readonly=False):
         """
         Returns the given data deserialized.
 
@@ -47,6 +47,9 @@ class Serializer(object):
         The returned data is also a dictionary with this structure, only
         the values are deserialized by using the `deserialize` method on
         the field.
+
+        Readonly fields are ignored unless `allow_readonly` is set to
+        `True`.
         """
 
         if type(data) is not dict:
@@ -58,12 +61,8 @@ class Serializer(object):
 
             field = self._field(fieldname)
 
-            # Ignore read-only fields. For convenience we don't give an
-            # error for this because otherwise clients need to strip out
-            # the read-only fields when they modify data from a GET and
-            # send it back through PUT.
-            if not field.readonly:
-                deserialized_data[fieldname] = field.deserialize(value)
+            if allow_readonly or not field.readonly:
+                deserialized_data[fieldname] = field.deserialize(value, allow_readonly)
 
         return deserialized_data
 

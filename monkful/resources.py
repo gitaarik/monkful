@@ -637,16 +637,23 @@ class MongoEngineResource(Resource):
         appropriate error message.
         """
 
-        data = self._deserialize(data)
-
         # If we got here, there wasn't a deserialize error,
         # so we can safely update/create the document
         if document:
-            return self._update_document(document, data)
-        else:
-            return self._create_document(data)
 
-    def _deserialize(self, data):
+            # Allow readonly fields because readonly fields can be
+            # identifier fields. We need to have the identifier fields
+            # to correctly update a resource.
+            # `_update_document` will filter out the readonly fields
+            # later on when updating the document.
+            data = self._deserialize(data, allow_readonly=True)
+
+            return self._update_document(document, data)
+
+        else:
+            return self._create_document(data, self._deserialize(data))
+
+    def _deserialize(self, data, allow_readonly=False):
         """
         Deserializes the data into data appropriate for creating/
         updating a MongoEngine document.
@@ -677,7 +684,7 @@ class MongoEngineResource(Resource):
 
         try:
 
-            return self.target_serializer.deserialize(data)
+            return self.target_serializer.deserialize(data, allow_readonly)
 
         except UnknownField, error:
 
@@ -907,14 +914,18 @@ class MongoEngineResource(Resource):
 
             for fieldname, field_data in data.items():
 
+                # The serializer for the field
+                field_serializer = getattr(serializer, fieldname)
+
+                if field_serializer.readonly:
+                    # Ignore readonly fields
+                    continue
+
                 # The document's field instance
                 field = document._fields[fieldname]
 
                 # The current value of the field
                 cur_value = getattr(document, fieldname)
-
-                # The serializer for the field
-                field_serializer = getattr(serializer, fieldname)
 
                 new_value = field_value(
                     field, cur_value, field_data, field_serializer
