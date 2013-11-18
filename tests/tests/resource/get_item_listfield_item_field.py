@@ -85,6 +85,5 @@ class ResourceGetItemListFieldItemField(unittest.TestCase):
         Test if the deserialized response data evaluates back to our
         initial data we inserted in `setUpClass`.
         """
-
         response_data = json.loads(self.response.data)
         self.assertEqual(response_data, self.initial_data)
