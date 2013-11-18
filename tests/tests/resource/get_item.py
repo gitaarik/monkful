@@ -8,9 +8,9 @@ from app import server
 from app.documents import Article
 
 
-class ResourceGet(unittest.TestCase):
+class ResourceGetItem(unittest.TestCase):
     """
-    Test the response of a HTTP GET request.
+    Test the response of a HTTP GET request on an item of a resource.
     """
 
     @classmethod
@@ -18,11 +18,13 @@ class ResourceGet(unittest.TestCase):
 
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
+        article_id = "528a5250aa2649ffd8ce8a90"
 
         # Load some initial data for this test case
         cls.data = {
             'articles': [
                 {
+                    'id': article_id,
                     'title': "Test title",
                     'text': "Test text",
                     'publish': True,
@@ -48,7 +50,7 @@ class ResourceGet(unittest.TestCase):
         for article in cls.data['articles']:
             Article(**article).save()
 
-        cls.response = cls.app.get('/articles/')
+        cls.response = cls.app.get('/articles/{}/'.format(article_id))
 
     @classmethod
     def tearDownClass(cls):
@@ -84,7 +86,7 @@ class ResourceGet(unittest.TestCase):
         initial data we inserted in `setUpClass`.
         """
 
-        response_data = json.loads(self.response.data)[0]
+        response_data = json.loads(self.response.data)
 
         # Check that the readonly field `date` in `comments` is present
         # and a valid date.
@@ -100,7 +102,7 @@ class ResourceGet(unittest.TestCase):
 
         # Remap the response data so that it only has the fields our
         # orignal data also had.
-        response_data = [{
+        response_data = {
             'title': response_data['title'],
             'text': response_data['text'],
             'publish': response_data['publish'],
@@ -117,18 +119,23 @@ class ResourceGet(unittest.TestCase):
                 'text': response_data['top_comment']['text']
             },
             'tags': response_data['tags']
-        }]
+        }
+
+        initial_article = copy.deepcopy(self.data['articles'][0])
+
+        # Remove the `id` field, because it's auto generated and wasn't
+        # present in the initial data.
+        del(initial_article['id'])
 
         # Remove `email` fields from the `comments` fields from the
         # initial data, because this field is a writeonly field and
         # shouldn't be exposed in the resource.
-        initial_article = copy.deepcopy(self.data['articles'][0])
         for comment in initial_article['comments']:
             del(comment['email'])
 
-        self.assertEqual(response_data, [initial_article])
+        self.assertEqual(response_data, initial_article)
 
         # Test if the field `email` in `comments` is not present,
         # because it's a writeonly field and shouldn't be exposed in the
         # resource.
-        self.assertNotIn('email', response_data[0]['comments'])
+        self.assertNotIn('email', response_data['comments'])

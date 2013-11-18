@@ -38,7 +38,7 @@ class Field(object):
         else:
             return self._serialize(value)
 
-    def deserialize(self, value, allow_readonly):
+    def deserialize(self, value, allow_readonly=False):
         """
         Returns the deserialized value of the field.
         """
@@ -172,7 +172,7 @@ class DocumentField(Field):
     def _serialize(self, data):
         return self.sub_serializer.serialize(data)
 
-    def _deserialize(self, data, allow_readonly, **kwargs):
+    def _deserialize(self, data, allow_readonly=False, **kwargs):
 
         if type(data) is not dict:
             raise ValueInvalidType(self, data)
@@ -224,7 +224,7 @@ class ListField(Field):
         # Uses the `sub_field` to serialize the items in the list
         return [self.sub_field.serialize(item) for item in field_list]
 
-    def _deserialize(self, field_list, allow_readonly, **kwargs):
+    def _deserialize(self, field_list, allow_readonly=False, **kwargs):
 
         if type(field_list) is not list:
             raise ValueInvalidType(self, field_list)

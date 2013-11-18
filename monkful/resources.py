@@ -521,13 +521,11 @@ class MongoEngineResource(Resource):
 
             self._save_document(self.base_target_document)
 
-            joho = deep_dict_value(
-               self.base_target_document,
-               self.target_path[1:]
-            )
-
             response = self.target_serializer.serialize(
-                joho
+                deep_dict_value(
+                    self.base_target_document,
+                    self.target_path[1:]
+                )
             )
 
             status_code = 200
