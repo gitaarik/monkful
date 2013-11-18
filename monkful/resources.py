@@ -732,7 +732,7 @@ class MongoEngineResource(Resource):
                                     if (
                                         data[serializer_field.name] ==
                                         getattr(
-                                            parent['value'][0],
+                                            document,
                                             serializer_field.name
                                         )
                                     ):
