@@ -21,6 +21,14 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
         cls.initial_data = {
             'id': comment_id,
             'text': "Test comment 2",
+            'upvotes': [
+                {
+                    'ip_address': "3.4.5.6",
+                },
+                {
+                    'ip_address': "4.5.6.7",
+                }
+            ]
         }
 
         # Load some initial data for this test case
@@ -33,13 +41,28 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
                         {
                             'id': "528a5250aa2649ffd8ce8a91",
                             'text': "Test comment",
+                            'upvotes': [
+                                {
+                                    'ip_address': "1.2.3.4",
+                                },
+                                {
+                                    'ip_address': "2.3.4.5",
+                                }
+                            ]
                         },
                         cls.initial_data,
                         {
                             'id': "528a5250aa2649ffd8ce8a93",
                             'text': "Test comment 2",
+                            'upvotes': [
+                                {
+                                    'ip_address': "5.6.7.8",
+                                },
+                                {
+                                    'ip_address': "6.7.8.9",
+                                }
+                            ]
                         }
-
                     ]
                 }
             ]
@@ -88,8 +111,13 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
 
         response_data = json.loads(self.response.data)
 
-        # Delete the `date` field because those are not in the intially
-        # set data.
+        # Delete the `date` field because it's not in the intially set
+        # data.
         del(response_data['date'])
+
+        # Delete the `date` fields in `upvotes` because they're not in
+        # the initially set data.
+        for upvote in response_data['upvotes']:
+            del(upvote['date'])
 
         self.assertEqual(response_data, self.initial_data)

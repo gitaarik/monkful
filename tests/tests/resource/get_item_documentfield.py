@@ -17,7 +17,17 @@ class ResourceGetItemDocumentField(unittest.TestCase):
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
         article_id = "528a5250aa2649ffd8ce8a90"
-        cls.initial_data = { 'text': "Top comment" }
+        cls.initial_data = {
+            'text': "Top comment",
+            'upvotes': [
+                {
+                    'ip_address': "5.6.7.8",
+                },
+                {
+                    'ip_address': "6.7.8.9",
+                }
+            ]
+        }
 
         # Load some initial data for this test case
         cls.data = {
@@ -71,7 +81,14 @@ class ResourceGetItemDocumentField(unittest.TestCase):
 
         response_data = json.loads(self.response.data)
 
+        # Delete the `id` and `date` field because they're not in the
+        # intially set data.
         del(response_data['id'])
         del(response_data['date'])
+
+        # Delete the `date` field in `upvotes` because it's not in the
+        # initially set data.
+        for vote in response_data['upvotes']:
+            del(vote['date'])
 
         self.assertEqual(response_data, self.initial_data)

@@ -3,11 +3,17 @@ from bson import ObjectId
 from mongoengine import Document, EmbeddedDocument, fields
 
 
+class Vote(EmbeddedDocument):
+    ip_address = fields.StringField()
+    date = fields.DateTimeField(default=datetime.now)
+
+
 class Comment(EmbeddedDocument):
     id = fields.ObjectIdField(default=ObjectId)
     text = fields.StringField()
     date = fields.DateTimeField(default=datetime.now)
     email = fields.EmailField()
+    upvotes = fields.ListField(fields.EmbeddedDocumentField(Vote))
 
 
 class Article(Document):

@@ -32,15 +32,39 @@ class ResourceGetItem(unittest.TestCase):
                     'comments': [
                         {
                             'text': "Test comment",
-                            'email': "test@example.com"
+                            'email': "test@example.com",
+                            'upvotes': [
+                                {
+                                    'ip_address': "1.2.3.4",
+                                },
+                                {
+                                    'ip_address': "2.3.4.5",
+                                }
+                            ]
                         },
                         {
                             'text': "Test comment 2",
-                            'email': "test2@example.com"
+                            'email': "test2@example.com",
+                            'upvotes': [
+                                {
+                                    'ip_address': "3.4.5.6",
+                                },
+                                {
+                                    'ip_address': "4.5.6.7",
+                                }
+                            ]
                         }
                     ],
                     'top_comment': {
-                        'text': "Top comment"
+                        'text': "Top comment",
+                        'upvotes': [
+                            {
+                                'ip_address': "5.6.7.8",
+                            },
+                            {
+                                'ip_address': "6.7.8.9",
+                            }
+                        ]
                     },
                     'tags': ['test', 'unittest', 'python', 'flask']
                 }
@@ -109,14 +133,56 @@ class ResourceGetItem(unittest.TestCase):
             'publish_date': parser.parse(response_data['publish_date']),
             'comments': [
                 {
-                    'text': response_data['comments'][0]['text']
+                    'text': response_data['comments'][0]['text'],
+                    'upvotes': [
+                        {
+                            'ip_address': (
+                                response_data['comments'][0]
+                                ['upvotes'][0]['ip_address']
+                            ),
+                        },
+                        {
+                            'ip_address': (
+                                response_data['comments'][0]
+                                ['upvotes'][1]['ip_address']
+                            ),
+                        },
+                    ]
                 },
                 {
-                    'text': response_data['comments'][1]['text']
+                    'text': response_data['comments'][1]['text'],
+                    'upvotes': [
+                        {
+                            'ip_address': (
+                                response_data['comments'][1]
+                                ['upvotes'][0]['ip_address']
+                            ),
+                        },
+                        {
+                            'ip_address': (
+                                response_data['comments'][1]
+                                ['upvotes'][1]['ip_address']
+                            ),
+                        },
+                    ]
                 }
             ],
             'top_comment': {
-                'text': response_data['top_comment']['text']
+                'text': response_data['top_comment']['text'],
+                'upvotes': [
+                    {
+                        'ip_address': (
+                            response_data['top_comment']
+                            ['upvotes'][0]['ip_address']
+                        ),
+                    },
+                    {
+                        'ip_address': (
+                            response_data['top_comment']
+                            ['upvotes'][1]['ip_address']
+                        ),
+                    },
+                ]
             },
             'tags': response_data['tags']
         }

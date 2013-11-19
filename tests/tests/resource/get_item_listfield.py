@@ -20,9 +20,25 @@ class ResourceGetItemListField(unittest.TestCase):
         cls.initial_data = [
             {
                 'text': "Test comment",
+                'upvotes': [
+                    {
+                        'ip_address': "1.2.3.4",
+                    },
+                    {
+                        'ip_address': "2.3.4.5",
+                    }
+                ]
             },
             {
                 'text': "Test comment 2",
+                'upvotes': [
+                    {
+                        'ip_address': "3.4.5.6",
+                    },
+                    {
+                        'ip_address': "4.5.6.7",
+                    }
+                ]
             }
         ]
 
@@ -78,10 +94,15 @@ class ResourceGetItemListField(unittest.TestCase):
 
         response_data = json.loads(self.response.data)
 
-        # Delete the `id` and `date` field because those are not in the
+        # Delete the `id` and `date` field because they're not in the
         # intially set data.
         for comment in response_data:
             del(comment['id'])
             del(comment['date'])
+
+            # Delete the `date` field in `upvotes` because it's not in
+            # the initially set data.
+            for vote in comment['upvotes']:
+                del(vote['date'])
 
         self.assertEqual(response_data, self.initial_data)

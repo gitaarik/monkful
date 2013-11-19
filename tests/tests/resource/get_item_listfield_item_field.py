@@ -39,7 +39,6 @@ class ResourceGetItemListFieldItemField(unittest.TestCase):
                             'id': "528a5250aa2649ffd8ce8a93",
                             'text': "Test comment 2",
                         }
-
                     ]
                 }
             ]
