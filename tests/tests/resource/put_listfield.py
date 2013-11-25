@@ -7,10 +7,10 @@ from app import server
 from app.documents import Article, Comment, Vote
 
 
-class ResourcePutDocumentField(unittest.TestCase):
+class ResourcePutListField(unittest.TestCase):
     """
-    Test if a HTTP PUT that updates a documenfield on a resource gives
-    the right response and updates the data in the database.
+    Test if a HTTP PUT that updates a listfield on a resource gives the
+    right response.
     """
 
     @classmethod
@@ -25,6 +25,7 @@ class ResourcePutDocumentField(unittest.TestCase):
             'publish': True,
             'publish_date': datetime(2013, 10, 9, 8, 7, 8),
             'comments': [
+
                 Comment(
                     text="Test comment old",
                     email="test@example.com",
@@ -34,7 +35,7 @@ class ResourcePutDocumentField(unittest.TestCase):
                     ]
                 ),
                 Comment(
-                    text="Test comment old 2",
+                    text="Test comment 2 old",
                     email="test2@example.com",
                     upvotes=[
                         Vote(ip_address="1.4.1.4", date=datetime(2013, 5, 2, 9, 1, 3)),
@@ -42,17 +43,20 @@ class ResourcePutDocumentField(unittest.TestCase):
                     ]
                 ),
 
+                # Test to see if this third comment gets removed on
+                # update.
                 Comment(
-                    text="Test comment old 3",
+                    text="Test comment 3 old",
                     email="test3@example.com",
                     upvotes=[
                         Vote(ip_address="5.4.1.2", date=datetime(2012, 5, 2, 9, 2, 3)),
                         Vote(ip_address="2.4.1.2", date=datetime(2012, 3, 2, 8, 2, 1))
                     ]
                 ),
+
             ],
             'top_comment': Comment(
-                text="Top comment old",
+                text="Top comment",
                 email="test@example.com",
                 upvotes=[
                     Vote(ip_address="5.4.1.2", date=datetime(2012, 5, 2, 9, 2, 3)),
@@ -64,17 +68,27 @@ class ResourcePutDocumentField(unittest.TestCase):
 
         article = Article(**cls.initial_data).save()
 
-        cls.update_data = {
-            'text': "Top comment new",
-            'email': "unittest@example.com",
-            'upvotes': [
-                { 'ip_address': "1.2.3.4" },
-                { 'ip_address': "2.2.3.4" }
-            ]
-        }
+        cls.update_data = [
+            {
+                'text': "Test comment new",
+                'email': "test-new@example.com",
+                'upvotes': [
+                    { 'ip_address': "1.2.3.4" },
+                    { 'ip_address': "2.2.3.4" }
+                ]
+            },
+            {
+                'text': "Test comment new 2",
+                'email': "test-new-2@example.com",
+                'upvotes': [
+                    { 'ip_address': "3.2.3.4" },
+                    { 'ip_address': "2.2.2.4" }
+                ]
+            }
+        ]
 
         cls.response = cls.app.put(
-            '/articles/{}/top_comment/'.format(unicode(article['id'])),
+            '/articles/{}/comments/'.format(unicode(article['id'])),
             headers={'content-type': 'application/json'},
             data=json.dumps(cls.update_data)
         )
@@ -85,9 +99,9 @@ class ResourcePutDocumentField(unittest.TestCase):
 
     def test_status_code(self):
         """
-        Test if the response status code is 200.
+        Test if the response status code is 400.
         """
-        self.assertEqual(self.response.status_code, 200)
+        self.assertEqual(self.response.status_code, 400)
 
     def test_content_type(self):
         """
@@ -109,33 +123,15 @@ class ResourcePutDocumentField(unittest.TestCase):
 
     def test_content(self):
         """
-        Test if the deserialized response data evaluates back to our
-        data we posted to the resource in `setUpClass`.
+        Test if the response contains the correct error message.
         """
-
         response_data = json.loads(self.response.data)
-
-        # Remap the response data so that it only has the fields our
-        # orignal data also had.
-        response_data = {
-            'text': response_data['text'],
-            'upvotes': [
-                { 'ip_address': response_data['upvotes'][0]['ip_address'] },
-                { 'ip_address': response_data['upvotes'][1]['ip_address'] }
-            ]
-        }
-
-        # Remove the `email` field because it's a writeonly field and
-        # isn't exposed in the resource.
-        original_data = copy.deepcopy(self.update_data)
-        del(original_data['email'])
-
-        self.assertEqual(response_data, original_data)
+        self.assertEqual(response_data, { 'message': "No id provided" })
 
     def test_documents(self):
         """
-        Test if the POST-ed data really ended up in the documents, and
-        if the initial data is still there.
+        Test if the POST-ed data didn't end up in the documents, and if
+        the initial data is still there.
         """
 
         article = Article.objects[0]
@@ -147,6 +143,7 @@ class ResourcePutDocumentField(unittest.TestCase):
             article.publish_date,
             self.initial_data['publish_date']
         )
+
         self.assertEqual(
             article.comments[0].text,
             self.initial_data['comments'][0]['text']
@@ -174,19 +171,19 @@ class ResourcePutDocumentField(unittest.TestCase):
 
         self.assertEqual(
             article.top_comment.text,
-            self.update_data['text']
+            self.initial_data['top_comment']['text']
         )
         self.assertEqual(
             article.top_comment.email,
-            self.update_data['email']
+            self.initial_data['top_comment']['email']
         )
         self.assertEqual(
             article.top_comment.upvotes[0].ip_address,
-            self.update_data['upvotes'][0]['ip_address']
+            self.initial_data['top_comment']['upvotes'][0]['ip_address']
         )
         self.assertEqual(
             article.top_comment.upvotes[1].ip_address,
-            self.update_data['upvotes'][1]['ip_address']
+            self.initial_data['top_comment']['upvotes'][1]['ip_address']
         )
 
         self.assertEqual(

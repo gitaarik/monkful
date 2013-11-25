@@ -92,7 +92,7 @@ class MongoEngineResource(Resource):
             if self.target_path and not self.target_path[-1]:
                 self.target_path.pop()
 
-        target_document_obj = self.document
+        self.target_document_obj = self.document
         target_path = self.target_path[:]
         self.target_document = None
         self.base_document = True
@@ -104,8 +104,9 @@ class MongoEngineResource(Resource):
             identifier = target_path[0]
 
             try:
-                self.base_target_document = target_document_obj.objects.get(
-                    id=identifier)
+                self.base_target_document = (
+                    self.target_document_obj.objects.get(id=identifier)
+                )
             except DoesNotExist:
                 abort(404, message=
                     "The resource specified with identifier '{}' could not be "
@@ -120,7 +121,7 @@ class MongoEngineResource(Resource):
 
                 self.base_document = False
 
-                def init_deep_target(target_path, target_document_obj, depth):
+                def init_deep_target(target_path, depth):
 
                     identifier = target_path[0]
                     depth += 1
@@ -147,11 +148,11 @@ class MongoEngineResource(Resource):
                                 .deserialize(self.target_path[depth])
                             ]
 
-                            for document in self.target_list:
+                            for i, document in enumerate(self.target_list):
                                 if getattr(document, identifier_field) == identifier:
+                                    self.target_document = self.target_list[i]
                                     self.target_list = None
-                                    self.target_document = document
-                                    target_document_obj = (
+                                    self.target_document_obj = (
                                         self.document.comments.field.document_type
                                     )
                                     break
@@ -183,29 +184,28 @@ class MongoEngineResource(Resource):
                             self.target_serializer = self.target_serializer.sub_serializer
 
                         try:
-                            target_document_obj = getattr(target_document_obj, identifier)
+                            self.target_document_obj = getattr(self.target_document_obj, identifier)
                         except AttributeError:
                             abort(404, message=
                                 "The resource specified with identifier '{}' could not be "
                                 "found".format(identifier)
                             )
 
-                        if isinstance(target_document_obj, fields.EmbeddedDocumentField):
-                            target_document_obj = target_document_obj.document_type
+                        if isinstance(self.target_document_obj, fields.EmbeddedDocumentField):
+                            self.target_document_obj = self.target_document_obj.document_type
 
                         self.target_list = None
                         self.target_document = getattr(self.target_document, identifier)
 
-                        if isinstance(target_document_obj, fields.ListField):
-                            #target_document_obj = target_document_obj.field.document_type
+                        if isinstance(self.target_document_obj, fields.ListField):
                             self.target_list = self.target_document
                             self.target_document = None
 
                     target_path.pop(0)
                     if target_path:
-                        init_deep_target(target_path, target_document_obj, depth)
+                        init_deep_target(target_path, depth)
 
-                init_deep_target(target_path, target_document_obj, 0)
+                init_deep_target(target_path, 0)
 
     def all_documents(self):
         """
@@ -453,25 +453,42 @@ class MongoEngineResource(Resource):
 
             else:
 
-                update_data = create_deep_dict(
-                    self.target_serializer.deserialize(request_data),
-                    self.target_path[1:]
-                )
+                if self.target_list:
 
-                self._update_document(
-                    self.base_target_document,
-                    update_data,
-                    serializer=self.serializer
-                )
+                    new_documents = []
 
-                self._save_document(self.base_target_document)
+                    for item in (
+                        self.target_serializer.deserialize(request_data)
+                    ):
+                        document = self.target_document_obj.field.document_type(**item)
+                        new_documents.append(document)
+                        self.target_list.append(document)
 
-                response = self.target_serializer.serialize(
-                   deep_dict_value(
-                       self.base_target_document,
-                       self.target_path[1:]
-                   )
-                )
+                    self._save_document(self.base_target_document)
+                    response = self.target_serializer.serialize(new_documents)
+
+                else:
+
+                    update_data = create_deep_dict(
+                        self.target_serializer.deserialize(request_data),
+                        self.target_path[1:]
+                    )
+
+                    self._update_document(
+                        self.base_target_document,
+                        update_data,
+                        serializer=self.serializer,
+                        update_lists=True
+                    )
+
+                    self._save_document(self.base_target_document)
+
+                    response = self.target_serializer.serialize(
+                       deep_dict_value(
+                           self.base_target_document,
+                           self.target_path[1:]
+                       )
+                    )
 
         else:
             document = self._process_document(request_data)
@@ -488,6 +505,9 @@ class MongoEngineResource(Resource):
         be updated. If `put_document()` returns `None` it will create a
         new document instead of updating one.
         """
+
+        if not self.target_document:
+            abort(400, message="No id provided")
 
         put_document = self.put_document(*args, **kwargs)
 
