@@ -429,6 +429,10 @@ class MongoEngineResource(Resource):
         into JSON format by the serializer.
         """
 
+        if not self.target_list:
+            abort(405, message=
+                "Can't update an item with POST, use PUT instead.")
+
         request_data = self._request_data()
 
         if isinstance(request_data, list):
@@ -453,42 +457,17 @@ class MongoEngineResource(Resource):
 
             else:
 
-                if self.target_list:
+                new_documents = []
 
-                    new_documents = []
+                for item in (
+                    self.target_serializer.deserialize(request_data)
+                ):
+                    document = self.target_document_obj.field.document_type(**item)
+                    new_documents.append(document)
+                    self.target_list.append(document)
 
-                    for item in (
-                        self.target_serializer.deserialize(request_data)
-                    ):
-                        document = self.target_document_obj.field.document_type(**item)
-                        new_documents.append(document)
-                        self.target_list.append(document)
-
-                    self._save_document(self.base_target_document)
-                    response = self.target_serializer.serialize(new_documents)
-
-                else:
-
-                    update_data = create_deep_dict(
-                        self.target_serializer.deserialize(request_data),
-                        self.target_path[1:]
-                    )
-
-                    self._update_document(
-                        self.base_target_document,
-                        update_data,
-                        serializer=self.serializer,
-                        update_lists=True
-                    )
-
-                    self._save_document(self.base_target_document)
-
-                    response = self.target_serializer.serialize(
-                       deep_dict_value(
-                           self.base_target_document,
-                           self.target_path[1:]
-                       )
-                    )
+                self._save_document(self.base_target_document)
+                response = self.target_serializer.serialize(new_documents)
 
         else:
 
@@ -497,14 +476,12 @@ class MongoEngineResource(Resource):
                 self._save_document(document)
                 response = self.target_serializer.serialize(document)
             else:
-
-                if self.target_list:
-                    document = self.target_document_obj.field.document_type(
-                        **self.target_serializer.sub_field.deserialize(request_data)
-                    )
-                    self.target_list.append(document)
-                    self._save_document(self.base_target_document)
-                    response = self.target_serializer.sub_field.serialize(document)
+                document = self.target_document_obj.field.document_type(
+                    **self.target_serializer.sub_field.deserialize(request_data)
+                )
+                self.target_list.append(document)
+                self._save_document(self.base_target_document)
+                response = self.target_serializer.sub_field.serialize(document)
 
         return response, 201
 

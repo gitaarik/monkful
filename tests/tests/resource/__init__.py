@@ -22,6 +22,7 @@ from post_multiple_unknown_field_in_embedded_document_in_list import *
 from post_unknown_field import *
 from post_unknown_field_in_embedded_document import *
 from post_unknown_field_in_embedded_document_in_list import *
+from post_invalid_item import *
 from post_listfield import *
 from post_listfield_multiple import *
 from put import *
