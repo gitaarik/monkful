@@ -7,7 +7,7 @@ from app import server
 from app.documents import Article, Comment, Vote
 
 
-class ResourcePostListField(unittest.TestCase):
+class ResourcePostListFieldMultiple(unittest.TestCase):
     """
     Test if a HTTP POST that adds entries to a listfield on a resource
     gives the right response and adds the data in the database.
@@ -57,14 +57,24 @@ class ResourcePostListField(unittest.TestCase):
 
         article = Article(**cls.initial_data).save()
 
-        cls.add_data = {
-            'text': "Test comment new",
-            'email': "test-new@example.com",
-            'upvotes': [
-                { 'ip_address': "1.2.3.4" },
-                { 'ip_address': "2.2.3.4" }
-            ]
-        }
+        cls.add_data = [
+            {
+                'text': "Test comment new",
+                'email': "test-new@example.com",
+                'upvotes': [
+                    { 'ip_address': "1.2.3.4" },
+                    { 'ip_address': "2.2.3.4" }
+                ]
+            },
+            {
+                'text': "Test comment new 2",
+                'email': "test-new-2@example.com",
+                'upvotes': [
+                    { 'ip_address': "3.2.3.4" },
+                    { 'ip_address': "2.2.2.4" }
+                ]
+            }
+        ]
 
         cls.response = cls.app.post(
             '/articles/{}/comments/'.format(unicode(article['id'])),
@@ -110,18 +120,20 @@ class ResourcePostListField(unittest.TestCase):
 
         # Remap the response data so that it only has the fields our
         # orignal data also had.
-        response_data = {
-            'text': response_data['text'],
-            'upvotes': [
-                { 'ip_address': response_data['upvotes'][0]['ip_address'] },
-                { 'ip_address': response_data['upvotes'][1]['ip_address'] }
-            ]
-        }
+        for i, comment in enumerate(response_data):
+            response_data[i] = {
+                'text': comment['text'],
+                'upvotes': [
+                    { 'ip_address': comment['upvotes'][0]['ip_address'] },
+                    { 'ip_address': comment['upvotes'][1]['ip_address'] }
+                ]
+            }
 
         # Remove the `email` field because it's a writeonly field and
         # isn't exposed in the resource.
         original_data = copy.deepcopy(self.add_data)
-        del(original_data['email'])
+        for i, comment in enumerate(original_data):
+            del(original_data[i]['email'])
 
         self.assertEqual(response_data, original_data)
 
@@ -163,11 +175,20 @@ class ResourcePostListField(unittest.TestCase):
         # The updated comments should be added
         self.assertEqual(
             article.comments[2].text,
-            self.add_data['text']
+            self.add_data[0]['text']
         )
         self.assertEqual(
             article.comments[2].email,
-            self.add_data['email']
+            self.add_data[0]['email']
+        )
+
+        self.assertEqual(
+            article.comments[3].text,
+            self.add_data[1]['text']
+        )
+        self.assertEqual(
+            article.comments[3].email,
+            self.add_data[1]['email']
         )
 
         self.assertEqual(

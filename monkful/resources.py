@@ -491,9 +491,20 @@ class MongoEngineResource(Resource):
                     )
 
         else:
-            document = self._process_document(request_data)
-            self._save_document(document)
-            response = self.target_serializer.serialize(document)
+
+            if self.is_base_document():
+                document = self._process_document(request_data)
+                self._save_document(document)
+                response = self.target_serializer.serialize(document)
+            else:
+
+                if self.target_list:
+                    document = self.target_document_obj.field.document_type(
+                        **self.target_serializer.sub_field.deserialize(request_data)
+                    )
+                    self.target_list.append(document)
+                    self._save_document(self.base_target_document)
+                    response = self.target_serializer.sub_field.serialize(document)
 
         return response, 201
 
