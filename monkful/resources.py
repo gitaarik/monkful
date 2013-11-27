@@ -429,7 +429,7 @@ class MongoEngineResource(Resource):
         into JSON format by the serializer.
         """
 
-        if not self.target_list:
+        if self.target_list == None:
             abort(405, message=
                 "Can't update an item with POST, use PUT instead.")
 
@@ -977,7 +977,8 @@ class MongoEngineResource(Resource):
             resource_errors = self._filter_validation_errors(error.errors)
 
             if resource_errors:
-                abort(400, message="The data did not validate.", errors=resource_errors)
+                abort(400, message="The data did not validate.",
+                    errors=resource_errors)
             else:
                 # If there were no errors on resource fields, it means
                 # the user of the resource can't help it, so it's a
