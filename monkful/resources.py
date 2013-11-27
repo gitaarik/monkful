@@ -430,6 +430,8 @@ class MongoEngineResource(Resource):
         """
 
         if self.target_list == None:
+            # If the target is not at a list, then it's at an item, and
+            # you can't update items with POST.
             abort(405, message=
                 "Can't update an item with POST, use PUT instead.")
 

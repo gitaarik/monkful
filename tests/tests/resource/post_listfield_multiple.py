@@ -172,7 +172,7 @@ class ResourcePostListFieldMultiple(unittest.TestCase):
             self.initial_data['comments'][1]['email']
         )
 
-        # The updated comments should be added
+        # The posted comments should be added
         self.assertEqual(
             article.comments[2].text,
             self.add_data[0]['text']
