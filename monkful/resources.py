@@ -517,26 +517,15 @@ class MongoEngineResource(Resource):
 
         else:
 
-            update_data = create_deep_dict(
-                self.target_serializer.deserialize(self._request_data()),
-                self.target_path[1:]
+            document = self.target_document_obj(
+                **self.target_serializer.deserialize(self._request_data())
             )
 
-            self._update_document(
-                self.base_target_document,
-                update_data,
-                serializer=self.serializer,
-                update_lists=True
-            )
+            for fieldname in document:
+                self.target_document[fieldname] = document[fieldname]
 
             self._save_document(self.base_target_document)
-
-            response = self.target_serializer.serialize(
-                deep_dict_value(
-                    self.base_target_document,
-                    self.target_path[1:]
-                )
-            )
+            response = self.target_serializer.serialize(document)
 
             status_code = 200
 
