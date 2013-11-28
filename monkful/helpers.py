@@ -32,39 +32,3 @@ def json_type(var):
         return 'null'
     else:
         return 'unknown'
-
-def create_deep_dict(value, layers):
-
-    data = {}
-    layer = layers[0]
-
-    if layers[1:]:
-
-        if type(layer) is list:
-            data = [create_deep_dict(value, layers[1:])]
-            data[0][layer[0]] = layer[1]
-        else:
-            data[layer] = create_deep_dict(value, layers[1:])
-
-    else:
-
-        if type(layer) is list:
-            data = [value]
-            data[0][layer[0]] = layer[1]
-        else:
-            data[layer] = value
-
-    return data
-
-def deep_dict_value(data, layers):
-
-    for layer in layers:
-        if type(layer) == list:
-            for item in data:
-                if item[layer[0]] == layer[1]:
-                    data = item
-                    break
-        else:
-            data = data[layer]
-
-    return data

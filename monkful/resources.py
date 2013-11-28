@@ -8,7 +8,7 @@ from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
-from .helpers import json_type, create_deep_dict, deep_dict_value
+from .helpers import json_type
 from .exceptions import InvalidQueryField
 
 
