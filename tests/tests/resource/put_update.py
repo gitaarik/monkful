@@ -8,7 +8,7 @@ from app import server
 from app.documents import Article, Comment, Vote
 
 
-class ResourcePut(unittest.TestCase):
+class ResourcePutUpdate(unittest.TestCase):
     """
     Test if a HTTP PUT that updates a resource gives the right response
     and updates the data in the database.

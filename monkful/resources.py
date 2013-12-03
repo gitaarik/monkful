@@ -142,12 +142,6 @@ class MongoEngineResource(Resource):
 
                         if identifier_field:
 
-                            self.target_path[depth] = [
-                                identifier_field,
-                                self.target_serializer._fields()[identifier_field]
-                                .deserialize(self.target_path[depth])
-                            ]
-
                             for i, document in enumerate(self.target_list):
                                 if getattr(document, identifier_field) == identifier:
                                     self.target_document = self.target_list[i]

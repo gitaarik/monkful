@@ -1,0 +1,4 @@
+- tests for:
+    - delete
+    - create on PUT
+    - filters (e.g. ?name=bla
