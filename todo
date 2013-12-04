@@ -2,3 +2,4 @@
     - delete
     - create on PUT
     - filters (e.g. ?name=bla
+    - invalid put request on base resource without an id in the url

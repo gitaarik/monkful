@@ -94,10 +94,15 @@ class MongoEngineResource(Resource):
 
         self.target_document_obj = self.document
         target_path = self.target_path[:]
+        self.base_target_document = None
         self.target_document = None
         self.base_document = True
         self.target_list = self.all_documents()
         self.target_serializer = self.serializer
+
+        # Determines if the document should be created. If not `False`,
+        # contains the value for the id for the new document.
+        self.create = False
 
         if target_path:
 
@@ -108,10 +113,16 @@ class MongoEngineResource(Resource):
                     self.target_document_obj.objects.get(id=identifier)
                 )
             except DoesNotExist:
-                abort(404, message=
-                    "The resource specified with identifier '{}' could not be "
-                    "found".format(identifier)
-                )
+
+                if request.method == 'PUT':
+                    # If method is PUT, it should create the resource
+                    # at this location.
+                    self.create = identifier
+                else:
+                    abort(404, message=
+                        "The resource specified with identifier '{}' could not be "
+                        "found".format(identifier)
+                    )
 
             self.target_document = self.base_target_document
             self.target_list = None
@@ -177,13 +188,7 @@ class MongoEngineResource(Resource):
                         if isinstance(self.target_serializer, serializer_fields.DocumentField):
                             self.target_serializer = self.target_serializer.sub_serializer
 
-                        try:
-                            self.target_document_obj = getattr(self.target_document_obj, identifier)
-                        except AttributeError:
-                            abort(404, message=
-                                "The resource specified with identifier '{}' could not be "
-                                "found".format(identifier)
-                            )
+                        self.target_document_obj = getattr(self.target_document_obj, identifier)
 
                         if isinstance(self.target_document_obj, fields.EmbeddedDocumentField):
                             self.target_document_obj = self.target_document_obj.document_type
@@ -490,10 +495,10 @@ class MongoEngineResource(Resource):
         new document instead of updating one.
         """
 
-        if not self.target_document:
-            abort(400, message="No id provided")
-
-        put_document = self.put_document(*args, **kwargs)
+        if self.target_document:
+            put_document = self.target_document
+        else:
+            put_document = self.target_document_obj()
 
         if self.is_base_document():
 
@@ -503,11 +508,6 @@ class MongoEngineResource(Resource):
             )
             self._save_document(document)
             response = self.target_serializer.serialize(document)
-
-            if put_document:
-                status_code = 200
-            else:
-                status_code = 201
 
         else:
 
@@ -521,7 +521,10 @@ class MongoEngineResource(Resource):
             self._save_document(self.base_target_document)
             response = self.target_serializer.serialize(document)
 
+        if self.target_document:
             status_code = 200
+        else:
+            status_code = 201
 
         return response, status_code
 
