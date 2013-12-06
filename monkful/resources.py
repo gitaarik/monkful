@@ -131,6 +131,7 @@ class MongoEngineResource(Resource):
             if target_path:
 
                 self.base_document = False
+                self.create = False
 
                 def init_deep_target(target_path, depth):
 
@@ -497,8 +498,10 @@ class MongoEngineResource(Resource):
 
         if self.target_document:
             put_document = self.target_document
+        elif self.create:
+            put_document = self.target_document_obj(id=self.create)
         else:
-            put_document = self.target_document_obj()
+            abort(400, message="No id provided")
 
         if self.is_base_document():
 
@@ -521,10 +524,10 @@ class MongoEngineResource(Resource):
             self._save_document(self.base_target_document)
             response = self.target_serializer.serialize(document)
 
-        if self.target_document:
-            status_code = 200
-        else:
+        if self.create:
             status_code = 201
+        else:
+            status_code = 200
 
         return response, status_code
 

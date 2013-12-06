@@ -81,9 +81,9 @@ class ResourcePutCreate(unittest.TestCase):
 
     def test_status_code(self):
         """
-        Test if the response status code is 200.
+        Test if the response status code is 201.
         """
-        self.assertEqual(self.response.status_code, 200)
+        self.assertEqual(self.response.status_code, 201)
 
     def test_content_type(self):
         """
