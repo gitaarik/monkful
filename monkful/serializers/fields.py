@@ -3,6 +3,7 @@ import dateutil.parser
 from bson.objectid import ObjectId
 from .exceptions import (FieldError, ValueInvalidType, ValueInvalidFormat,
     SerializeWriteonlyField, InvalidFieldSerializer)
+import json
 
 
 class Field(object):
@@ -248,3 +249,15 @@ class ObjectIdField(Field):
 
     def _deserialize(self, value, **kwargs):
         return ObjectId(value)
+
+
+class DynamicField(Field):
+    """
+    A free form field which can be anything, e.g. a string, list or dict
+    """
+
+    def _serialize(self, value):
+        return json.dumps(value)
+
+    def _deserialize(self, value, **kwargs):
+        return json.loads(value)
