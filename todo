@@ -1,5 +1,4 @@
 - tests for subdocuments:
-    - post (for adding items to listfields)
     - create on PUT
 
 global tests:

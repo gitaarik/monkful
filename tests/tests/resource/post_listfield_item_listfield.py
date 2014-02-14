@@ -1,4 +1,3 @@
-import copy
 import unittest
 import json
 from datetime import datetime
@@ -7,10 +6,11 @@ from app import server
 from app.documents import Article, Comment, Vote
 
 
-class ResourcePostListField(unittest.TestCase):
+class ResourcePostListFieldItemListField(unittest.TestCase):
     """
-    Test if a HTTP POST that adds entries to a listfield on a resource
-    gives the right response and adds the data in the database.
+    Test if a HTTP POST that adds entries to a listfield in a item of a
+    listfield on a resource gives the right response and adds the data
+    in the database.
     """
 
     @classmethod
@@ -18,6 +18,8 @@ class ResourcePostListField(unittest.TestCase):
 
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
+
+        comment_id = "528a5250aa2649ffd8ce8a90"
 
         cls.initial_data = {
             'title': "Test title",
@@ -27,6 +29,7 @@ class ResourcePostListField(unittest.TestCase):
             'comments': [
 
                 Comment(
+                    id=comment_id,
                     text="Test comment old",
                     email="test@example.com",
                     upvotes=[
@@ -75,17 +78,13 @@ class ResourcePostListField(unittest.TestCase):
 
         article = Article(**cls.initial_data).save()
 
-        cls.add_data = {
-            'text': "Test comment new",
-            'email': "test-new@example.com",
-            'upvotes': [
-                {'ip_address': "1.2.3.4"},
-                {'ip_address': "2.2.3.4"}
-            ]
-        }
+        cls.add_data = {'ip_address': "5.5.5.5"}
 
         cls.response = cls.app.post(
-            '/articles/{}/comments/'.format(unicode(article['id'])),
+            '/articles/{}/comments/{}/upvotes/'.format(
+                unicode(article['id']),
+                comment_id
+            ),
             headers={'content-type': 'application/json'},
             data=json.dumps(cls.add_data)
         )
@@ -126,86 +125,16 @@ class ResourcePostListField(unittest.TestCase):
 
         response_data = json.loads(self.response.data)
 
-        # Remap the response data so that it only has the fields our
-        # orignal data also had.
-        response_data = {
-            'text': response_data['text'],
-            'upvotes': [
-                {'ip_address': response_data['upvotes'][0]['ip_address']},
-                {'ip_address': response_data['upvotes'][1]['ip_address']}
-            ]
-        }
+        # Remove the date field because it's auto generated and we
+        # didn't include it in the original posted data.
+        del response_data['date']
 
-        # Remove the `email` field because it's a writeonly field and
-        # isn't exposed in the resource.
-        original_data = copy.deepcopy(self.add_data)
-        del(original_data['email'])
-
-        self.assertEqual(response_data, original_data)
+        self.assertEqual(response_data, self.add_data)
 
     def test_documents(self):
         """
-        Test if the POST-ed data really ended up in the documents, and
-        if the initial data is still there.
+        Test if the POST-ed data really ended up in the document
         """
-
-        article = Article.objects[0]
-
-        self.assertEqual(article.title, self.initial_data['title'])
-        self.assertEqual(article.text, self.initial_data['text'])
-        self.assertEqual(article.publish, self.initial_data['publish'])
-        self.assertEqual(
-            article.publish_date,
-            self.initial_data['publish_date']
-        )
-
-        # The initial comments should still be present
-        self.assertEqual(
-            article.comments[0].text,
-            self.initial_data['comments'][0]['text']
-        )
-        self.assertEqual(
-            article.comments[0].email,
-            self.initial_data['comments'][0]['email']
-        )
-
-        self.assertEqual(
-            article.comments[1].text,
-            self.initial_data['comments'][1]['text']
-        )
-        self.assertEqual(
-            article.comments[1].email,
-            self.initial_data['comments'][1]['email']
-        )
-
-        # The posted comments should be added
-        self.assertEqual(
-            article.comments[2].text,
-            self.add_data['text']
-        )
-        self.assertEqual(
-            article.comments[2].email,
-            self.add_data['email']
-        )
-
-        self.assertEqual(
-            article.top_comment.text,
-            self.initial_data['top_comment']['text']
-        )
-        self.assertEqual(
-            article.top_comment.email,
-            self.initial_data['top_comment']['email']
-        )
-        self.assertEqual(
-            article.top_comment.upvotes[0].ip_address,
-            self.initial_data['top_comment']['upvotes'][0]['ip_address']
-        )
-        self.assertEqual(
-            article.top_comment.upvotes[1].ip_address,
-            self.initial_data['top_comment']['upvotes'][1]['ip_address']
-        )
-
-        self.assertEqual(
-            article.tags,
-            self.initial_data['tags']
-        )
+        upvotes = Article.objects[0].comments[0].upvotes
+        self.assertEqual(len(upvotes), 3)
+        self.assertEqual(upvotes[2].ip_address, self.add_data['ip_address'])
