@@ -108,8 +108,15 @@ directory you can play around with it.
 
     ```python
     import requests, json
+    
     data = {'title': "Hello", 'text': "This is the content!"}
-    requests.put('http://127.0.0.1:5000/posts/', data=json.dumps(data))
+    headers = {'content-type': 'application/json; charset=utf-8'}
+    
+    requests.put(
+        'http://127.0.0.1:5000/posts/',
+        data=json.dumps(data),
+        headers=headers
+    )
     ```
 
 7. See the result: [http://127.0.0.1:5000/posts/](http://127.0.0.1:5000/posts/)

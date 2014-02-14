@@ -1,8 +1,10 @@
 import inspect
 import dateutil.parser
 from bson.objectid import ObjectId
-from .exceptions import (FieldError, ValueInvalidType, ValueInvalidFormat,
-    SerializeWriteonlyField, InvalidFieldSerializer)
+from .exceptions import (
+    FieldError, ValueInvalidType, ValueInvalidFormat,
+    SerializeWriteonlyField, InvalidFieldSerializer
+)
 
 
 class Field(object):
@@ -178,8 +180,10 @@ class DocumentField(Field):
             raise ValueInvalidType(self, data)
 
         try:
-            return self.sub_serializer.deserialize(data,
-                allow_readonly=allow_readonly)
+            return self.sub_serializer.deserialize(
+                data,
+                allow_readonly=allow_readonly
+            )
         except FieldError as error:
             # If a `FieldError` exception occurs, we add this field as a
             # parent in the parent fields chain. This will be used for
@@ -233,8 +237,9 @@ class ListField(Field):
         return [
             self.sub_field.deserialize(item, allow_readonly=allow_readonly)
             for item in field_list
-            if item is not None # Don't allow `None` values in lists
+            if item is not None  # Don't allow `None` values in lists
         ]
+
 
 class ObjectIdField(Field):
     """
@@ -248,3 +253,15 @@ class ObjectIdField(Field):
 
     def _deserialize(self, value, **kwargs):
         return ObjectId(value)
+
+
+class DynamicField(Field):
+    """
+    A free form field which can be anything, e.g. a string, list or dict
+    """
+
+    def _serialize(self, value):
+        return value
+
+    def _deserialize(self, value, **kwargs):
+        return value
