@@ -4,7 +4,7 @@ from mongoengine import Document, EmbeddedDocument, fields
 
 
 class Vote(EmbeddedDocument):
-    ip_address = fields.StringField()
+    ip_address = fields.StringField(unique=True)
     date = fields.DateTimeField(default=datetime.now)
 
 

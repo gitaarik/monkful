@@ -1,5 +1,8 @@
-- tests for:
-    - delete
+- tests for subdocuments:
+    - post (for adding items to listfields)
     - create on PUT
-    - filters (e.g. ?name=bla
+
+global tests:
+    - filters (e.g. ?name=bla)
+    - test if unique constaint gives right response
     - invalid put request on base resource without an id in the url

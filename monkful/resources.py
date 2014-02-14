@@ -20,11 +20,17 @@ class MongoEngineResource(Resource):
         super(MongoEngineResource, self).__init__(*args, **kwargs)
 
     def dispatch_request(self, *args, **kwargs):
+
         # Call authenticate for each request
         self.authenticate()
         self.check_request_content_type_header()
         self._init_target(*args, **kwargs)
-        return super(MongoEngineResource, self).dispatch_request(*args, **kwargs)
+
+        return super(
+            MongoEngineResource, self
+        ).dispatch_request(
+            *args, **kwargs
+        )
 
     def authenticate(self):
         """
@@ -58,11 +64,11 @@ class MongoEngineResource(Resource):
             content_type != 'application/json'
         ):
 
-            abort(415, message=
+            abort(415, message=(
                 "Invalid Content-Type header '{}'. This resource "
                 "only supports 'application/json'."
                 .format(content_type)
-            )
+            ))
 
     def check_request_charset(self, charset):
         """
@@ -70,11 +76,11 @@ class MongoEngineResource(Resource):
         """
 
         if charset != 'charset=utf-8':
-            abort(415, message=
+            abort(415, message=(
                 "Invalid charset in Content-Type header '{}'. This resource "
                 "only supports 'charset=utf-8'."
                 .format(charset)
-            )
+            ))
 
     def _init_target(self, *args, **kwargs):
         """
@@ -95,6 +101,7 @@ class MongoEngineResource(Resource):
         self.target_document_obj = self.document
         target_path = self.target_path[:]
         self.base_target_document = None
+        self.target_parent = None
         self.target_document = None
         self.base_document = True
         self.target_list = self.all_documents()
@@ -119,10 +126,10 @@ class MongoEngineResource(Resource):
                     # at this location.
                     self.create = identifier
                 else:
-                    abort(404, message=
-                        "The resource specified with identifier '{}' could not be "
-                        "found".format(identifier)
-                    )
+                    abort(404, message=(
+                        "The resource specified with identifier '{}' "
+                        "could not be found".format(identifier)
+                    ))
 
             self.target_document = self.base_target_document
             self.target_list = None
@@ -156,6 +163,8 @@ class MongoEngineResource(Resource):
 
                             for i, document in enumerate(self.target_list):
                                 if getattr(document, identifier_field) == identifier:
+                                    self.target_parent_document = None
+                                    self.target_parent_list = self.target_list
                                     self.target_document = self.target_list[i]
                                     self.target_list = None
                                     self.target_document_obj = (
@@ -194,6 +203,8 @@ class MongoEngineResource(Resource):
                         if isinstance(self.target_document_obj, fields.EmbeddedDocumentField):
                             self.target_document_obj = self.target_document_obj.document_type
 
+                        self.target_parent_document = self.target_document
+                        self.target_parent_list = None
                         self.target_list = None
                         self.target_document = getattr(self.target_document, identifier)
 
@@ -380,13 +391,17 @@ class MongoEngineResource(Resource):
                     # If the field is a list field with a document
                     # field inside, recurse with the serializer from
                     # that document.
-                    if (isinstance(
-                        serializer_field,
-                        serializer_fields.ListField
-                    ) and isinstance(
-                        serializer_field.sub_field,
-                        serializer_fields.DocumentField
-                    )):
+                    if (
+                        isinstance(
+                            serializer_field,
+                            serializer_fields.ListField
+                        )
+                        and
+                        isinstance(
+                            serializer_field.sub_field,
+                            serializer_fields.DocumentField
+                        )
+                    ):
                         return deserialize_query_value(
                             field_trace,
                             serializer_field.sub_field.sub_serializer
@@ -429,11 +444,12 @@ class MongoEngineResource(Resource):
         into JSON format by the serializer.
         """
 
-        if self.target_list == None:
+        if self.target_list is None:
             # If the target is not at a list, then it's at an item, and
             # you can't update items with POST.
-            abort(405, message=
-                "Can't update an item with POST, use PUT instead.")
+            abort(405, message=(
+                "Can't update an item with POST, use PUT instead."
+            ))
 
         request_data = self._request_data()
 
@@ -464,7 +480,9 @@ class MongoEngineResource(Resource):
                 for item in (
                     self.target_serializer.deserialize(request_data)
                 ):
-                    document = self.target_document_obj.field.document_type(**item)
+                    document = self.target_document_obj.field.document_type(
+                        **item
+                    )
                     new_documents.append(document)
                     self.target_list.append(document)
 
@@ -479,7 +497,9 @@ class MongoEngineResource(Resource):
                 response = self.target_serializer.serialize(document)
             else:
                 document = self.target_document_obj.field.document_type(
-                    **self.target_serializer.sub_field.deserialize(request_data)
+                    **self.target_serializer.sub_field.deserialize(
+                        request_data
+                    )
                 )
                 self.target_list.append(document)
                 self._save_document(self.base_target_document)
@@ -558,12 +578,17 @@ class MongoEngineResource(Resource):
         if self.is_base_document():
             self.target_document.delete()
         else:
-            # TODO: remove the target document from the base document and save the base document
-            pass
 
-        return {
-            'details': "Successfully deleted resource"
-        }
+            if self.target_parent_list:
+                self.target_parent_list.remove(self.target_document)
+                self._save_document(self.base_target_document)
+            else:
+                abort(400, message=(
+                    "Can't delete a field. Maybe you want to update the "
+                    "field to null?"
+                ))
+
+        return None, 204
 
     def _request_data(self):
         """
@@ -751,8 +776,9 @@ class MongoEngineResource(Resource):
         """
         return self.document(**data)
 
-    def _update_document(self, document, data, serializer=None,
-        update_lists=False):
+    def _update_document(
+        self, document, data, serializer=None, update_lists=False
+    ):
         """
         Updates the provided `document` with the provided `data`.
 
@@ -785,11 +811,15 @@ class MongoEngineResource(Resource):
                     'value': cur_value
                 }
 
-                if update_lists and isinstance(field.field, fields.EmbeddedDocumentField):
+                if update_lists and isinstance(
+                    field.field, fields.EmbeddedDocumentField
+                ):
 
                     identifier_field = None
 
-                    for fieldname, item_field in serializer.sub_field.sub_serializer._fields().items():
+                    for fieldname, item_field in (
+                        serializer.sub_field.sub_serializer._fields().items()
+                    ):
                         if item_field.identifier:
                             identifier_field = fieldname
 
@@ -802,7 +832,8 @@ class MongoEngineResource(Resource):
                             for item in data:
                                 if (
                                     identifier_field in item and
-                                    cur_value_item[identifier_field] == item[identifier_field]
+                                    cur_value_item[identifier_field] ==
+                                    item[identifier_field]
                                 ):
                                     keep_value = False
 
@@ -949,27 +980,30 @@ class MongoEngineResource(Resource):
 
             if self.allow_not_unique_error(error):
 
-                abort(409, message=
+                abort(409, message=(
                     "One or more fields are not unique. Please consult "
                     "the scheme of the resource and ensure that you "
-                    "satisfy unique constraints.",
+                    "satisfy unique constraints."),
                     error=unicode(error.message)
                 )
 
             else:
-                abort(409, message=
+                abort(409, message=(
                     "One or more fields are not unique. Please consult "
                     "the scheme of the resource and ensure that you "
                     "satisfy unique constraints."
-                )
+                ))
 
         except ValidationError, error:
 
             resource_errors = self._filter_validation_errors(error.errors)
 
             if resource_errors:
-                abort(400, message="The data did not validate.",
-                    errors=resource_errors)
+                abort(
+                    400,
+                    message="The data did not validate.",
+                    errors=resource_errors
+                )
             else:
                 # If there were no errors on resource fields, it means
                 # the user of the resource can't help it, so it's a
@@ -1039,7 +1073,8 @@ class MongoEngineResource(Resource):
             `filter_errors()` with it's `sub_serializer`.
             """
 
-            if (field.__class__ is serializer_fields.ListField and
+            if (
+                field.__class__ is serializer_fields.ListField and
                 # Listfields can have errors on the field itself or on
                 # the field(s) inside it. If it has the method
                 # `values()` we know it are multiple errors.
