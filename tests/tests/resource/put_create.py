@@ -38,8 +38,8 @@ class ResourcePutCreate(unittest.TestCase):
                     'email': "test_updated@example.com",
 
                     'upvotes': [
-                        { 'ip_address': '3.3.3.3' },
-                        { 'ip_address': '4.4.4.4' }
+                        {'ip_address': '3.3.3.3'},
+                        {'ip_address': '4.4.4.4'}
                     ]
                 },
                 {
@@ -52,8 +52,8 @@ class ResourcePutCreate(unittest.TestCase):
                     'email': "test2_updated@example.com",
 
                     'upvotes': [
-                        { 'ip_address': '5.5.5.5' },
-                        { 'ip_address': '6.6.6.6' }
+                        {'ip_address': '5.5.5.5'},
+                        {'ip_address': '6.6.6.6'}
                     ]
                 }
             ],
@@ -62,8 +62,8 @@ class ResourcePutCreate(unittest.TestCase):
                 'email': "test_updated@example.com",
                 'date': datetime(2011, 5, 7, 1, 3, 1).isoformat(),
                 'upvotes': [
-                    { 'ip_address': "1.2.3.4" },
-                    { 'ip_address': "2.2.3.4" }
+                    {'ip_address': "1.2.3.4"},
+                    {'ip_address': "2.2.3.4"}
                 ]
             },
             'tags': ["tag1 new", "tag2 new", "tag3 new"],
@@ -141,29 +141,29 @@ class ResourcePutCreate(unittest.TestCase):
                 {
                     'text': response_data['comments'][0]['text'],
                     'upvotes': [
-                        { 'ip_address': response_data['comments'][0]
-                            ['upvotes'][0]['ip_address'] },
-                        { 'ip_address': response_data['comments'][0]
-                            ['upvotes'][1]['ip_address'] },
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][0]['ip_address']},
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][1]['ip_address']},
                     ]
                 },
                 {
                     'text': response_data['comments'][1]['text'],
                     'upvotes': [
-                        { 'ip_address': response_data['comments'][1]
-                            ['upvotes'][0]['ip_address'] },
-                        { 'ip_address': response_data['comments'][1]
-                            ['upvotes'][1]['ip_address'] },
+                        {'ip_address': response_data['comments'][1]
+                            ['upvotes'][0]['ip_address']},
+                        {'ip_address': response_data['comments'][1]
+                            ['upvotes'][1]['ip_address']},
                     ]
                 }
             ],
             'top_comment': {
                 'text': response_data['top_comment']['text'],
                 'upvotes': [
-                    { 'ip_address': response_data['top_comment']
-                        ['upvotes'][0]['ip_address'] },
-                    { 'ip_address': response_data['top_comment']
-                        ['upvotes'][1]['ip_address'] },
+                    {'ip_address': response_data['top_comment']
+                        ['upvotes'][0]['ip_address']},
+                    {'ip_address': response_data['top_comment']
+                        ['upvotes'][1]['ip_address']},
                 ]
             },
             'tags': response_data['tags']
