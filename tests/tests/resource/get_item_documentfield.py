@@ -22,9 +22,11 @@ class ResourceGetItemDocumentField(unittest.TestCase):
             'upvotes': [
                 {
                     'ip_address': "5.6.7.8",
+                    'name': "Zorz"
                 },
                 {
                     'ip_address': "6.7.8.9",
+                    'name': "Ach"
                 }
             ]
         }
@@ -43,7 +45,9 @@ class ResourceGetItemDocumentField(unittest.TestCase):
         for article in cls.data['articles']:
             Article(**article).save()
 
-        cls.response = cls.app.get('/articles/{}/top_comment/'.format(article_id))
+        cls.response = cls.app.get(
+            '/articles/{}/top_comment/'.format(article_id)
+        )
 
     @classmethod
     def tearDownClass(cls):

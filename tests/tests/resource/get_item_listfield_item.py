@@ -24,10 +24,12 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
             'upvotes': [
                 {
                     'ip_address': "3.4.5.6",
+                    'name': "Zmeuh"
                 },
                 {
                     'ip_address': "4.5.6.7",
-                }
+                    'name': "Whdirrr"
+                },
             ]
         }
 
@@ -44,9 +46,11 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
                             'upvotes': [
                                 {
                                     'ip_address': "1.2.3.4",
+                                    'name': "Njaaaaaa"
                                 },
                                 {
                                     'ip_address': "2.3.4.5",
+                                    'name': "Hohj"
                                 }
                             ]
                         },
@@ -57,9 +61,11 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
                             'upvotes': [
                                 {
                                     'ip_address': "5.6.7.8",
+                                    'name': "Ohch"
                                 },
                                 {
                                     'ip_address': "6.7.8.9",
+                                    'name': "Ichi"
                                 }
                             ]
                         }

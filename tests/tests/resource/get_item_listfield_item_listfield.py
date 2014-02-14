@@ -5,7 +5,7 @@ from app import server
 from app.documents import Article
 
 
-class ResourceGetItemListFieldItem(unittest.TestCase):
+class ResourceGetItemListFieldItemListField(unittest.TestCase):
     """
     Test the response of a HTTP GET request on an itemfield in a
     listfield from an item of a resource.
@@ -21,9 +21,11 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
         cls.initial_data = [
             {
                 'ip_address': "3.4.5.6",
+                'name': "Wjurrr"
             },
             {
                 'ip_address': "4.5.6.7",
+                'name': "Hoinouh"
             }
         ]
 
@@ -40,9 +42,11 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
                             'upvotes': [
                                 {
                                     'ip_address': "1.2.3.4",
+                                    'name': "Jarhz"
                                 },
                                 {
                                     'ip_address': "2.3.4.5",
+                                    'name': "WHah"
                                 }
                             ]
                         },
@@ -57,9 +61,11 @@ class ResourceGetItemListFieldItem(unittest.TestCase):
                             'upvotes': [
                                 {
                                     'ip_address': "5.6.7.8",
+                                    'name': "Wwheck"
                                 },
                                 {
                                     'ip_address': "6.7.8.9",
+                                    'name': "Euflem"
                                 }
                             ]
                         }

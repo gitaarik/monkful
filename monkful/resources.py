@@ -110,6 +110,7 @@ class MongoEngineResource(Resource):
         # Determines if the document should be created. If not `False`,
         # contains the value for the id for the new document.
         self.create = False
+        self.create_identifier_field = 'id'
 
         if target_path:
 
@@ -173,27 +174,33 @@ class MongoEngineResource(Resource):
                                     break
 
                             if not self.target_document:
-                                abort(404, message=
-                                    "The resource specified with identifier '{}' could not be "
-                                    "found".format(identifier)
-                                )
+
+                                if request.method == 'PUT' and len(target_path) == 1:
+                                    self.create = target_path[0]
+                                    self.create_identifier_field = identifier_field
+                                    self.target_document_obj = self.target_document_obj.field.document_type
+                                else:
+                                    abort(404, message=(
+                                        "The resource specified with identifier '{}' could not be "
+                                        "found".format(identifier)
+                                    ))
 
                         else:
 
-                            abort(404, message=
+                            abort(404, message=(
                                 "The resource specified with identifier '{}' could not be "
                                 "found".format(identifier)
-                            )
+                            ))
 
                     else:
 
                         try:
                             self.target_serializer = getattr(self.target_serializer, identifier)
                         except AttributeError:
-                            abort(404, message=
+                            abort(404, message=(
                                 "The resource specified with identifier '{}' could not be "
                                 "found".format(identifier)
-                            )
+                            ))
 
                         if isinstance(self.target_serializer, serializer_fields.DocumentField):
                             self.target_serializer = self.target_serializer.sub_serializer
@@ -519,7 +526,8 @@ class MongoEngineResource(Resource):
         if self.target_document:
             put_document = self.target_document
         elif self.create:
-            put_document = self.target_document_obj(id=self.create)
+            obj_params = {self.create_identifier_field: self.create}
+            put_document = self.target_document_obj(**obj_params)
         else:
             abort(400, message="No id provided")
 
@@ -539,10 +547,20 @@ class MongoEngineResource(Resource):
             )
 
             for fieldname in document:
-                self.target_document[fieldname] = document[fieldname]
+
+                if getattr(self.target_serializer, fieldname).identifier:
+                    # ignore identifier fields
+                    continue
+
+                put_document[fieldname] = document[fieldname]
+
+            if self.create:
+                # If the document is created we still need to add this
+                # document to the list.
+                self.target_list.append(put_document)
 
             self._save_document(self.base_target_document)
-            response = self.target_serializer.serialize(document)
+            response = self.target_serializer.serialize(put_document)
 
         if self.create:
             status_code = 201

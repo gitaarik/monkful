@@ -35,11 +35,13 @@ class ResourcePostListFieldItemListField(unittest.TestCase):
                     upvotes=[
                         Vote(
                             ip_address="1.4.1.2",
-                            date=datetime(2012, 5, 2, 9, 1, 3)
+                            date=datetime(2012, 5, 2, 9, 1, 3),
+                            name="Jzorz"
                         ),
                         Vote(
                             ip_address="2.4.5.2",
-                            date=datetime(2012, 8, 2, 8, 2, 1)
+                            date=datetime(2012, 8, 2, 8, 2, 1),
+                            name="Nahnahnah"
                         )
                     ]
                 ),
@@ -49,11 +51,13 @@ class ResourcePostListFieldItemListField(unittest.TestCase):
                     upvotes=[
                         Vote(
                             ip_address="1.4.1.4",
-                            date=datetime(2013, 5, 2, 9, 1, 3)
+                            date=datetime(2013, 5, 2, 9, 1, 3),
+                            name="Zwefhalala"
                         ),
                         Vote(
                             ip_address="2.4.9.2",
-                            date=datetime(2013, 8, 2, 8, 2, 1)
+                            date=datetime(2013, 8, 2, 8, 2, 1),
+                            name="Jhardikranall"
                         )
                     ]
                 ),
@@ -65,11 +69,13 @@ class ResourcePostListFieldItemListField(unittest.TestCase):
                 upvotes=[
                     Vote(
                         ip_address="5.4.1.2",
-                        date=datetime(2012, 5, 2, 9, 2, 3)
+                        date=datetime(2012, 5, 2, 9, 2, 3),
+                        name="Majananejjeew"
                     ),
                     Vote(
                         ip_address="2.4.1.2",
-                        date=datetime(2012, 3, 2, 8, 2, 1)
+                        date=datetime(2012, 3, 2, 8, 2, 1),
+                        name="Hoeieieie"
                     )
                 ]
             ),
@@ -78,7 +84,10 @@ class ResourcePostListFieldItemListField(unittest.TestCase):
 
         article = Article(**cls.initial_data).save()
 
-        cls.add_data = {'ip_address': "5.5.5.5"}
+        cls.add_data = {
+            'ip_address': "5.5.5.5",
+            'name': "Wejejejeje"
+        }
 
         cls.response = cls.app.post(
             '/articles/{}/comments/{}/upvotes/'.format(

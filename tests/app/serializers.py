@@ -3,6 +3,7 @@ from monkful.serializers import Serializer, fields
 
 class Vote(Serializer):
     ip_address = fields.StringField(identifier=True)
+    name = fields.StringField()
     date = fields.DateTimeField(readonly=True)
 
 
