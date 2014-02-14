@@ -549,7 +549,8 @@ class MongoEngineResource(Resource):
             for fieldname in document:
 
                 if getattr(self.target_serializer, fieldname).identifier:
-                    # ignore identifier fields
+                    # Ignore the identifier field because we already
+                    # have the values for him.
                     continue
 
                 put_document[fieldname] = document[fieldname]
