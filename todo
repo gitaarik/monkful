@@ -1,6 +1,3 @@
-- tests for subdocuments:
-    - create on PUT
-
 global tests:
     - filters (e.g. ?name=bla)
     - test if unique constaint gives right response

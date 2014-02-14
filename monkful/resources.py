@@ -555,7 +555,7 @@ class MongoEngineResource(Resource):
                 put_document[fieldname] = document[fieldname]
 
             if self.create:
-                # If the document is created we still need to add this
+                # If the document is new we still need to add this
                 # document to the list.
                 self.target_list.append(put_document)
 
