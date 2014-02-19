@@ -29,6 +29,9 @@ class ResourceGetItem(unittest.TestCase):
                     'text': "Test text",
                     'publish': True,
                     'publish_date': datetime(2013, 10, 9, 8, 7, 8),
+                    'version': 1.4,
+                    'order': 1,
+                    'serial_number': 4581951951031539524,
                     'comments': [
                         {
                             'text': "Test comment",
@@ -131,6 +134,9 @@ class ResourceGetItem(unittest.TestCase):
             'text': response_data['text'],
             'publish': response_data['publish'],
             'publish_date': parser.parse(response_data['publish_date']),
+            'version': response_data['version'],
+            'order': response_data['order'],
+            'serial_number': response_data['serial_number'],
             'comments': [
                 {
                     'text': response_data['comments'][0]['text'],

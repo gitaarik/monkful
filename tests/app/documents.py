@@ -25,3 +25,6 @@ class Article(Document):
     tags = fields.ListField(fields.StringField())
     publish = fields.BooleanField()
     publish_date = fields.DateTimeField()
+    version = fields.FloatField()
+    order = fields.IntField()
+    serial_number = fields.LongField()

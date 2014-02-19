@@ -361,7 +361,7 @@ class MongoEngineResource(Resource):
 
     def _deserialize_query_value(self, field_trace, value):
         """
-        Returns the serialized `value` for the field specified by the
+        Returns the deserialized `value` for the field specified by the
         `field_trace`.
 
         The `field_trace` should be a list of steps to the field. If its
@@ -374,6 +374,22 @@ class MongoEngineResource(Resource):
         If the field doesn't exist on the serializer, it will raise an
         `InvalidQueryField` exception.
         """
+
+        def url_decode_value(serializer_field, value):
+            """
+            Will decode the url value to the correct type corresponding
+            to the given `serializer_field`.
+
+            For example, if the `field` is an `IntField`, will cast the
+            value to an int.
+            """
+
+            deserialize_type = serializer_field.deserialize_type
+
+            if deserialize_type:
+                return deserialize_type(value)
+            else:
+                return value
 
         def deserialize_query_value(field_trace, serializer):
             """
@@ -390,10 +406,10 @@ class MongoEngineResource(Resource):
             # Check if field exists on serializer
             if field in serializer._fields():
 
+                serializer_field = serializer._field(field)
+
                 # If there are still fields in the `field_trace` go on
                 if field_trace:
-
-                    serializer_field = serializer._field(field)
 
                     # If the field is a list field with a document
                     # field inside, recurse with the serializer from
@@ -433,7 +449,9 @@ class MongoEngineResource(Resource):
                     # If there are no fields in the `field_trace` it
                     # means we found the serializer for the field, so
                     # return the deserialized value for it.
-                    return serializer._field(field).deserialize(value)
+                    return serializer_field.deserialize(
+                        url_decode_value(serializer_field, value)
+                    )
 
             else:
                 raise InvalidQueryField(field)

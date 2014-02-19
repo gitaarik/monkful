@@ -1,4 +1,4 @@
 global tests:
-    - filters (e.g. ?name=bla)
+    - extend filters test
     - test if unique constaint work and give right response
     - invalid put request on base resource without an id in the url

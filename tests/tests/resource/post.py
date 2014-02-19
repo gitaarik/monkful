@@ -25,6 +25,9 @@ class ResourcePost(unittest.TestCase):
             'text': "Test text",
             'publish': True,
             'publish_date': datetime(2013, 10, 9, 8, 7, 8).isoformat(),
+            'version': 1.4,
+            'order': 1,
+            'serial_number': 4581951951031539524,
             'comments': [
                 {
                     'text': "Test comment",
@@ -37,8 +40,8 @@ class ResourcePost(unittest.TestCase):
                     # insertion
                     'date': datetime(2010, 6, 5, 4, 3, 2).isoformat(),
                     'upvotes': [
-                        { 'ip_address': "1.2.3.4" },
-                        { 'ip_address': "2.2.3.4" }
+                        {'ip_address': "1.2.3.4"},
+                        {'ip_address': "2.2.3.4"}
                     ]
                 },
                 {
@@ -52,8 +55,8 @@ class ResourcePost(unittest.TestCase):
                     # insertion
                     'date': datetime(2010, 5, 4, 3, 2, 1).isoformat(),
                     'upvotes': [
-                        { 'ip_address': "1.3.3.4" },
-                        { 'ip_address': "2.4.3.4" }
+                        {'ip_address': "1.3.3.4"},
+                        {'ip_address': "2.4.3.4"}
                     ]
                 }
             ],
@@ -61,8 +64,8 @@ class ResourcePost(unittest.TestCase):
             'top_comment': {
                 'text': "Top comment",
                 'upvotes': [
-                    { 'ip_address': "5.4.1.2"},
-                    { 'ip_address': "2.4.1.2"}
+                    {'ip_address': "5.4.1.2"},
+                    {'ip_address': "2.4.1.2"}
                 ]
             }
         }
@@ -135,23 +138,32 @@ class ResourcePost(unittest.TestCase):
             'text': response_data['text'],
             'publish': response_data['publish'],
             'publish_date': response_data['publish_date'],
+            'version': response_data['version'],
+            'order': response_data['order'],
+            'serial_number': response_data['serial_number'],
             'comments': [
                 {
                     'text': response_data['comments'][0]['text'],
                     'upvotes': [
-                        { 'ip_address': response_data['comments'][0]
-                            ['upvotes'][0]['ip_address'] },
-                        { 'ip_address': response_data['comments'][0]
-                            ['upvotes'][1]['ip_address'] },
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][0]['ip_address']},
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][1]['ip_address']},
                     ]
                 },
                 {
                     'text': response_data['comments'][1]['text'],
                     'upvotes': [
-                        { 'ip_address': response_data['comments'][1]
-                            ['upvotes'][0]['ip_address'] },
-                        { 'ip_address': response_data['comments'][1]
-                            ['upvotes'][1]['ip_address'] },
+                        {
+                            'ip_address':
+                            response_data['comments'][1]
+                            ['upvotes'][0]['ip_address']
+                        },
+                        {
+                            'ip_address':
+                            response_data['comments'][1]
+                            ['upvotes'][1]['ip_address']
+                        },
                     ]
                 }
             ],
@@ -159,10 +171,16 @@ class ResourcePost(unittest.TestCase):
             'top_comment': {
                 'text': response_data['top_comment']['text'],
                 'upvotes': [
-                    { 'ip_address': response_data['top_comment']
-                        ['upvotes'][0]['ip_address'] },
-                    { 'ip_address': response_data['top_comment']
-                        ['upvotes'][1]['ip_address'] },
+                    {
+                        'ip_address':
+                        response_data['top_comment']
+                        ['upvotes'][0]['ip_address']
+                    },
+                    {
+                        'ip_address':
+                        response_data['top_comment']
+                        ['upvotes'][1]['ip_address']
+                    },
                 ]
             }
         }

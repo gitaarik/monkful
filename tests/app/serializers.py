@@ -24,3 +24,6 @@ class ArticleSerializer(Serializer):
     top_comment = fields.DocumentField(CommentSerializer)
     publish = fields.BooleanField()
     publish_date = fields.DateTimeField()
+    version = fields.FloatField()
+    order = fields.IntField()
+    serial_number = fields.LongField()

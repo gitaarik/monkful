@@ -18,17 +18,17 @@ def json_type(var):
     if type(var) is not type:
         var = type(var)
 
-    if var == unicode or var == str:
+    if var in(unicode, str):
         return 'String'
-    elif var == int or var == float:
+    elif var in(int, long, float):
         return 'Number'
-    elif var == bool:
+    elif var is bool:
         return 'Boolean'
-    elif var == list:
+    elif var is list:
         return 'Array'
-    elif var == dict:
+    elif var is dict:
         return 'Object'
-    elif var == None:
+    elif var is None:
         return 'null'
     else:
         return 'unknown'
