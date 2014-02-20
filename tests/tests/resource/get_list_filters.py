@@ -1,6 +1,7 @@
 import json
 import random
 import unittest
+from datetime import datetime
 from pymongo import MongoClient
 from app import server
 from app.documents import Article
@@ -19,36 +20,44 @@ class ResourceGetListFilters(unittest.TestCase):
         cls.mongo_client = MongoClient()
 
         # Test filters on all field types:
-        # - StringField
-        # - BoolField
-        # - IntField
-        # - FloatField
-        # - LongField
-        # TODO: add more types to test
-        cls.params = {
+        cls.matching_values = {
+            # StringField
             'text': "This text should match",
+
+            # BoolField
             'publish': 1,
+
+            # DateTimeField
+            'publish_date': datetime(2010, 10, 5),
+
+            # IntField
             'order': 333,
+
+            # FloatField
             'version': 2.5,
+
+            # LongField
             'serial_number': 4581951951031539524
         }
 
         matching_articles = [
             {
                 'title': "The first one",
-                'text': cls.params['text'],
+                'text': cls.matching_values['text'],
                 'publish': True,
-                'order': cls.params['order'],
-                'version': cls.params['version'],
-                'serial_number': cls.params['serial_number'],
+                'publish_date': cls.matching_values['publish_date'],
+                'order': cls.matching_values['order'],
+                'version': cls.matching_values['version'],
+                'serial_number': cls.matching_values['serial_number'],
             },
             {
                 'title': "A sixt one",
-                'text': cls.params['text'],
-                'order': cls.params['order'],
+                'text': cls.matching_values['text'],
                 'publish': True,
-                'version': cls.params['version'],
-                'serial_number': cls.params['serial_number'],
+                'publish_date': cls.matching_values['publish_date'],
+                'order': cls.matching_values['order'],
+                'version': cls.matching_values['version'],
+                'serial_number': cls.matching_values['serial_number'],
             }
         ]
 
@@ -57,43 +66,54 @@ class ResourceGetListFilters(unittest.TestCase):
         for i in range(100):
 
             # one divergent parameter should exclude the article
-            exclude_match = random.choice(
-                ('text', 'publish', 'order', 'version', 'serial_number')
-            )
+            exclude_match = random.choice((
+                'text', 'publish', 'publish_date', 'order', 'version',
+                'serial_number'
+            ))
 
             title = "Non matching article #{}".format(i)
 
             if exclude_match == 'text':
                 text = "Non matching text #{}".format(i)
             else:
-                text = cls.params['text']
+                text = cls.matching_values['text']
 
             if exclude_match == 'publish':
                 publish = False
             else:
                 publish = True
 
+            if exclude_match == 'publish_date':
+                publish_date = datetime(
+                    random.randint(1950, 2000),
+                    random.randint(1, 12),
+                    random.randint(1, 27)
+                )
+            else:
+                publish_date = cls.matching_values['publish_date']
+
             if exclude_match == 'order':
                 order = random.randint(0, 100)
             else:
-                order = cls.params['order']
+                order = cls.matching_values['order']
 
             if exclude_match == 'version':
                 version = float('1.{}'.format(random.randint(0, 9)))
             else:
-                version = cls.params['version']
+                version = cls.matching_values['version']
 
             if exclude_match == 'serial_number':
                 serial_number = random.randint(
                     1000000000000000000, 2000000000000000000
                 )
             else:
-                serial_number = cls.params['serial_number']
+                serial_number = cls.matching_values['serial_number']
 
             non_matching_articles.append({
                 'title': title,
                 'text': text,
                 'publish': publish,
+                'publish_date': publish_date,
                 'order': order,
                 'version': version,
                 'serial_number': serial_number
@@ -105,10 +125,18 @@ class ResourceGetListFilters(unittest.TestCase):
         for article in initial_data:
             Article(**article).save()
 
+        params = {}
+
+        for key, value in cls.matching_values.items():
+            if key == 'publish_date':
+                params[key] = value.isoformat()
+            else:
+                params[key] = unicode(value)
+
         query_string = '?{}'.format(
             '&'.join([
                 '{}={}'.format(key, value)
-                for key, value in cls.params.items()
+                for key, value in params.items()
             ])
         )
 
@@ -151,5 +179,9 @@ class ResourceGetListFilters(unittest.TestCase):
         self.assertEqual(len(response_data), 2)
 
         for article in response_data:
-            for key, value in self.params.items():
+            for key, value in self.matching_values.items():
+
+                if key == 'publish_date':
+                    value = value.isoformat()
+
                 self.assertEqual(article[key], value)
