@@ -1,7 +1,7 @@
 global tests:
-    - test if unique constaint work and give right response
     - invalid put request on base resource without an id in the url
     - extend filters test to ListFields and EmbeddedDocumentFields
 
 subdocument tests:
+    - test if unique constaint work and give right response
     - test filters

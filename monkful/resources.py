@@ -132,6 +132,13 @@ class MongoEngineResource(Resource):
                         "could not be found".format(identifier)
                     ))
 
+            except ValidationError:
+                abort(400, message=(
+                    "The identifier '{}' is of a wrong formatting".format(
+                        identifier
+                    )
+                ))
+
             self.target_document = self.base_target_document
             self.target_list = None
             target_path.pop(0)
