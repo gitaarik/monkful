@@ -134,7 +134,7 @@ class MongoEngineResource(Resource):
 
             except ValidationError:
                 abort(400, message=(
-                    "The identifier '{}' is of a wrong formatting".format(
+                    "The formatting for the identifier '{}' is invalid".format(
                         identifier
                     )
                 ))

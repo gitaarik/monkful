@@ -55,7 +55,7 @@ class ResourcePutInvalidId(unittest.TestCase):
         self.assertEqual(
             response_data,
             {'message': (
-                "The identifier 'invalid_id_format' is of a wrong "
-                "formatting"
+                "The formatting for the identifier 'invalid_id_format' "
+                "is invalid"
             )}
         )
