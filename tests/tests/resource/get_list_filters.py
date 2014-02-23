@@ -37,7 +37,10 @@ class ResourceGetListFilters(unittest.TestCase):
             'version': 2.5,
 
             # LongField
-            'serial_number': 4581951951031539524
+            'serial_number': 4581951951031539524,
+
+            # ListField
+            'tags': ['matching_tag1', 'matching_tag2']
         }
 
         matching_articles = [
@@ -49,6 +52,7 @@ class ResourceGetListFilters(unittest.TestCase):
                 'order': cls.matching_values['order'],
                 'version': cls.matching_values['version'],
                 'serial_number': cls.matching_values['serial_number'],
+                'tags': cls.matching_values['tags'],
             },
             {
                 'title': "A sixt one",
@@ -58,6 +62,7 @@ class ResourceGetListFilters(unittest.TestCase):
                 'order': cls.matching_values['order'],
                 'version': cls.matching_values['version'],
                 'serial_number': cls.matching_values['serial_number'],
+                'tags': cls.matching_values['tags'],
             }
         ]
 
@@ -68,7 +73,7 @@ class ResourceGetListFilters(unittest.TestCase):
             # one divergent parameter should exclude the article
             exclude_match = random.choice((
                 'text', 'publish', 'publish_date', 'order', 'version',
-                'serial_number'
+                'serial_number', 'tags'
             ))
 
             title = "Non matching article #{}".format(i)
@@ -109,6 +114,11 @@ class ResourceGetListFilters(unittest.TestCase):
             else:
                 serial_number = cls.matching_values['serial_number']
 
+            if exclude_match == 'tags':
+                tags = ['nonmatching_tag1', 'nonmatching_tag2']
+            else:
+                tags = cls.matching_values['tags']
+
             non_matching_articles.append({
                 'title': title,
                 'text': text,
@@ -116,7 +126,8 @@ class ResourceGetListFilters(unittest.TestCase):
                 'publish_date': publish_date,
                 'order': order,
                 'version': version,
-                'serial_number': serial_number
+                'serial_number': serial_number,
+                'tags': tags
             })
 
         # Load some initial data for this test case
@@ -130,6 +141,8 @@ class ResourceGetListFilters(unittest.TestCase):
         for key, value in cls.matching_values.items():
             if key == 'publish_date':
                 params[key] = value.isoformat()
+            elif key == 'tags':
+                params[key] = ','.join(value)
             else:
                 params[key] = unicode(value)
 

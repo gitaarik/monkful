@@ -3,9 +3,9 @@ import json
 from app import server
 
 
-class ResourcePutInvalidId(unittest.TestCase):
+class ResourcePutInvalidNoId(unittest.TestCase):
     """
-    Test if a HTTP PUT with an invalid id format gives the right
+    Test if a HTTP PUT without an identifier in the URL gives the right
     response.
     """
 
@@ -15,7 +15,7 @@ class ResourcePutInvalidId(unittest.TestCase):
         cls.app = server.app.test_client()
 
         cls.response = cls.app.put(
-            '/articles/{}/'.format('invalid_id_format'),
+            '/articles/',
             headers={'content-type': 'application/json'},
             data=json.dumps({'data': "shouldn't matter"})
         )
@@ -49,13 +49,5 @@ class ResourcePutInvalidId(unittest.TestCase):
         Test if the deserialized response data evaluates back to our
         data we posted to the resource in `setUpClass`.
         """
-
         response_data = json.loads(self.response.data)
-
-        self.assertEqual(
-            response_data,
-            {'message': (
-                "The formatting for the identifier 'invalid_id_format' "
-                "is invalid"
-            )}
-        )
+        self.assertEqual(response_data, {'message': 'No id provided'})

@@ -1,5 +1,4 @@
 global tests:
-    - invalid put request on base resource without an id in the url
     - extend filters test to ListFields and EmbeddedDocumentFields
 
 subdocument tests:

@@ -398,7 +398,7 @@ class MongoEngineResource(Resource):
             else:
                 return value
 
-        def deserialize_query_value(field_trace, serializer):
+        def deserialize_query_value(field_trace, serializer, value):
             """
             Will walk through the `field_trace` by calling itself
             recursively and return the deserialized value in the end.
@@ -434,7 +434,8 @@ class MongoEngineResource(Resource):
                     ):
                         return deserialize_query_value(
                             field_trace,
-                            serializer_field.sub_field.sub_serializer
+                            serializer_field.sub_field.sub_serializer,
+                            value
                         )
 
                     # If the field is a document field inside, recurse
@@ -445,7 +446,8 @@ class MongoEngineResource(Resource):
                     )):
                         return deserialize_query_value(
                             field_trace,
-                            serializer_field.sub_serializer
+                            serializer_field.sub_serializer,
+                            value
                         )
 
                     # Otherwise the trace was too deep and invalid
@@ -456,6 +458,13 @@ class MongoEngineResource(Resource):
                     # If there are no fields in the `field_trace` it
                     # means we found the serializer for the field, so
                     # return the deserialized value for it.
+
+                    if isinstance(
+                        serializer_field,
+                        serializer_fields.ListField
+                    ):
+                        value = value.split(',')
+
                     return serializer_field.deserialize(
                         url_decode_value(serializer_field, value)
                     )
@@ -463,7 +472,11 @@ class MongoEngineResource(Resource):
             else:
                 raise InvalidQueryField(field)
 
-        return deserialize_query_value(field_trace, self.target_serializer)
+        return deserialize_query_value(
+            field_trace,
+            self.target_serializer,
+            value
+        )
 
     def post(self, *args, **kwargs):
         """
