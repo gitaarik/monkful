@@ -53,6 +53,7 @@ class ResourceGetListFilters(unittest.TestCase):
                 'version': cls.matching_values['version'],
                 'serial_number': cls.matching_values['serial_number'],
                 'tags': cls.matching_values['tags'],
+                'top_comment': {}
             },
             {
                 'title': "A sixt one",
@@ -63,6 +64,7 @@ class ResourceGetListFilters(unittest.TestCase):
                 'version': cls.matching_values['version'],
                 'serial_number': cls.matching_values['serial_number'],
                 'tags': cls.matching_values['tags'],
+                'top_comment': {}
             }
         ]
 
@@ -127,7 +129,8 @@ class ResourceGetListFilters(unittest.TestCase):
                 'order': order,
                 'version': version,
                 'serial_number': serial_number,
-                'tags': tags
+                'tags': tags,
+                'top_comment': {}
             })
 
         # Load some initial data for this test case

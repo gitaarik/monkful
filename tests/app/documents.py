@@ -10,7 +10,7 @@ class Vote(EmbeddedDocument):
 
 
 class Comment(EmbeddedDocument):
-    id = fields.ObjectIdField(default=ObjectId)
+    id = fields.ObjectIdField(unique=True, default=ObjectId)
     text = fields.StringField()
     date = fields.DateTimeField(default=datetime.now)
     email = fields.EmailField()
