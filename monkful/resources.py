@@ -100,7 +100,6 @@ class MongoEngineResource(Resource):
 
         self.target_document_obj = self.document
         target_path = self.target_path[:]
-        self.base_target_document = None
         self.target_parent = None
         self.target_document = None
         self.is_base_document = True
@@ -109,6 +108,7 @@ class MongoEngineResource(Resource):
 
         if self.base_document:
             self.target_list = None
+            self.target_document = self.base_document
         else:
             self.target_list = self.get_base_list()
 
@@ -127,8 +127,8 @@ class MongoEngineResource(Resource):
                 identifier = target_path[0]
 
                 try:
-                    self.base_target_document = (
-                        self.target_document_obj.objects.get(id=identifier)
+                    self.base_document = self.get_base_document_for_identifier(
+                        identifier
                     )
                 except DoesNotExist:
 
@@ -149,7 +149,7 @@ class MongoEngineResource(Resource):
                         )
                     ))
 
-                self.target_document = self.base_target_document
+                self.target_document = self.base_document
                 self.target_list = None
                 target_path.pop(0)
 
@@ -253,6 +253,11 @@ class MongoEngineResource(Resource):
         """
         return None
 
+    def get_base_document_for_identifier(self, identifier):
+        return (
+            self.target_document_obj.objects.get(id=identifier)
+        )
+
     def get_base_list(self):
         """
         Returns the base list of documents.
@@ -332,9 +337,15 @@ class MongoEngineResource(Resource):
         request.
         """
         if request.args:
-            return self._all_target_documents().filter(
-                **self._serialize_query(request.args.to_dict())
-            )
+
+            if self.is_base_document:
+                return self._all_target_documents().filter(
+                    **self._serialize_query(request.args.to_dict())
+                )
+            else:
+                # TODO: make filters work for subdocuments
+                return self._all_target_documents()
+
         else:
             return self._all_target_documents()
 
@@ -545,7 +556,7 @@ class MongoEngineResource(Resource):
                     new_documents.append(document)
                     self.target_list.append(document)
 
-                self._save_document(self.base_target_document)
+                self._save_document(self.base_document)
                 response = self.target_serializer.serialize(new_documents)
 
         else:
@@ -561,7 +572,7 @@ class MongoEngineResource(Resource):
                     )
                 )
                 self.target_list.append(document)
-                self._save_document(self.base_target_document)
+                self._save_document(self.base_document)
                 response = self.target_serializer.sub_field.serialize(document)
 
         return response, 201
@@ -612,7 +623,7 @@ class MongoEngineResource(Resource):
                 # document to the list.
                 self.target_list.append(put_document)
 
-            self._save_document(self.base_target_document)
+            self._save_document(self.base_document)
             response = self.target_serializer.serialize(put_document)
 
         if self.create:
@@ -652,7 +663,7 @@ class MongoEngineResource(Resource):
 
             if self.target_parent_list:
                 self.target_parent_list.remove(self.target_document)
-                self._save_document(self.base_target_document)
+                self._save_document(self.base_document)
             else:
                 abort(400, message=(
                     "Can't delete a field. Maybe you want to update the "
