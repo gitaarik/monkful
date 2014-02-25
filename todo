@@ -1,0 +1,8 @@
+global tests:
+    - paging for large collections
+    - support for documents at base of resource
+    - extend filters test to ListFields and EmbeddedDocumentFields
+
+subdocument tests:
+    - test if unique constaint work and give right response
+    - test filters

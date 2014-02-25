@@ -1,14 +1,22 @@
 from monkful.serializers import Serializer, fields
 
 
+class Vote(Serializer):
+    ip_address = fields.StringField(identifier=True)
+    name = fields.StringField()
+    date = fields.DateTimeField(readonly=True)
+
+
 class CommentSerializer(Serializer):
     id = fields.ObjectIdField(identifier=True)
     text = fields.StringField()
     date = fields.DateTimeField(readonly=True)
     email = fields.StringField(writeonly=True)
+    upvotes = fields.ListField(fields.DocumentField(Vote))
 
 
 class ArticleSerializer(Serializer):
+    id = fields.ObjectIdField(identifier=True)
     title = fields.StringField()
     text = fields.StringField()
     comments = fields.ListField(fields.DocumentField(CommentSerializer))
@@ -16,3 +24,6 @@ class ArticleSerializer(Serializer):
     top_comment = fields.DocumentField(CommentSerializer)
     publish = fields.BooleanField()
     publish_date = fields.DateTimeField()
+    version = fields.FloatField()
+    order = fields.IntField()
+    serial_number = fields.LongField()

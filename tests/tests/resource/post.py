@@ -25,6 +25,9 @@ class ResourcePost(unittest.TestCase):
             'text': "Test text",
             'publish': True,
             'publish_date': datetime(2013, 10, 9, 8, 7, 8).isoformat(),
+            'version': 1.4,
+            'order': 1,
+            'serial_number': 4581951951031539524,
             'comments': [
                 {
                     'text': "Test comment",
@@ -35,23 +38,35 @@ class ResourcePost(unittest.TestCase):
 
                     # Test if this readonly field will be ignored on
                     # insertion
-                    'date': datetime(2010, 6, 5, 4, 3, 2).isoformat()
+                    'date': datetime(2010, 6, 5, 4, 3, 2).isoformat(),
+                    'upvotes': [
+                        {'ip_address': "1.2.3.4"},
+                        {'ip_address': "2.2.3.4"}
+                    ]
                 },
                 {
                     'text': "Test comment 2",
 
                     # Test if this writeonly field will be inserted but
                     # not exposed in the resourse.
-                    'email': 'test2@example.com',
+                    'email': "test2@example.com",
 
                     # Test if this readonly field will be ignored on
                     # insertion
-                    'date': datetime(2010, 5, 4, 3, 2, 1).isoformat()
+                    'date': datetime(2010, 5, 4, 3, 2, 1).isoformat(),
+                    'upvotes': [
+                        {'ip_address': "1.3.3.4"},
+                        {'ip_address': "2.4.3.4"}
+                    ]
                 }
             ],
-            'tags': ['test', 'unittest', 'python', 'flask'],
+            'tags': ["test", "unittest", "python", "flask"],
             'top_comment': {
-                'text': "Top comment"
+                'text': "Top comment",
+                'upvotes': [
+                    {'ip_address': "5.4.1.2"},
+                    {'ip_address': "2.4.1.2"}
+                ]
             }
         }
 
@@ -123,17 +138,50 @@ class ResourcePost(unittest.TestCase):
             'text': response_data['text'],
             'publish': response_data['publish'],
             'publish_date': response_data['publish_date'],
+            'version': response_data['version'],
+            'order': response_data['order'],
+            'serial_number': response_data['serial_number'],
             'comments': [
                 {
-                    'text': response_data['comments'][0]['text']
+                    'text': response_data['comments'][0]['text'],
+                    'upvotes': [
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][0]['ip_address']},
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][1]['ip_address']},
+                    ]
                 },
                 {
-                    'text': response_data['comments'][1]['text']
+                    'text': response_data['comments'][1]['text'],
+                    'upvotes': [
+                        {
+                            'ip_address':
+                            response_data['comments'][1]
+                            ['upvotes'][0]['ip_address']
+                        },
+                        {
+                            'ip_address':
+                            response_data['comments'][1]
+                            ['upvotes'][1]['ip_address']
+                        },
+                    ]
                 }
             ],
             'tags': response_data['tags'],
             'top_comment': {
-                'text': response_data['top_comment']['text']
+                'text': response_data['top_comment']['text'],
+                'upvotes': [
+                    {
+                        'ip_address':
+                        response_data['top_comment']
+                        ['upvotes'][0]['ip_address']
+                    },
+                    {
+                        'ip_address':
+                        response_data['top_comment']
+                        ['upvotes'][1]['ip_address']
+                    },
+                ]
             }
         }
 
@@ -168,6 +216,7 @@ class ResourcePost(unittest.TestCase):
             article.publish_date.isoformat(),
             self.data['publish_date']
         )
+
         self.assertEqual(
             article.comments[0].text,
             self.data['comments'][0]['text']
@@ -177,6 +226,11 @@ class ResourcePost(unittest.TestCase):
             self.data['comments'][0]['email']
         )
         self.assertEqual(
+            article.comments[0].upvotes[0].ip_address,
+            self.data['comments'][0]['upvotes'][0]['ip_address']
+        )
+
+        self.assertEqual(
             article.comments[1].text,
             self.data['comments'][1]['text']
         )
@@ -184,6 +238,11 @@ class ResourcePost(unittest.TestCase):
             article.comments[1].email,
             self.data['comments'][1]['email']
         )
+        self.assertEqual(
+            article.comments[1].upvotes[0].ip_address,
+            self.data['comments'][1]['upvotes'][0]['ip_address']
+        )
+
         self.assertEqual(
             article.tags,
             self.data['tags']

@@ -1,11 +1,23 @@
 import inspect
 import dateutil.parser
 from bson.objectid import ObjectId
-from .exceptions import (FieldError, ValueInvalidType, ValueInvalidFormat,
-    SerializeWriteonlyField, InvalidFieldSerializer)
+from .exceptions import (
+    FieldError, ValueInvalidType, ValueInvalidFormat,
+    SerializeWriteonlyField, InvalidFieldSerializer
+)
 
 
 class Field(object):
+
+    # The type of of the `value` `deserialize()` expects to get.
+    # If set to a Python type, will check if the value to
+    # `deserialize()` is of this type and if not will raise a
+    # `ValueInvalidType` exception.
+    deserialize_type = None
+
+    # A list of types that are allowed to typecast from. For example, a
+    # FloatField should accept `int` types and typecast them to `float`.
+    allowed_typecasts = []
 
     def __init__(self, **kwargs):
 
@@ -38,7 +50,15 @@ class Field(object):
         else:
             return self._serialize(value)
 
-    def deserialize(self, value):
+    def _serialize(self, value):
+        """
+        By default returns the given `value` as is, but if a field needs
+        special treatment for serializing the field subclass can
+        overwrite this method.
+        """
+        return value
+
+    def deserialize(self, value, allow_readonly=False):
         """
         Returns the deserialized value of the field.
         """
@@ -46,7 +66,34 @@ class Field(object):
         if value is None:
             return None
         else:
-            return self._deserialize(value)
+            return self._deserialize(
+                self.decode_value(value),
+                allow_readonly=allow_readonly
+            )
+
+    def decode_value(self, value):
+        """
+        Checks if the given value is of the right type, if not, raises a
+        `ValueInvalidType` exception, otherwise returns the value as is.
+        """
+        if self.deserialize_type:
+            if (
+                type(value) is not self.deserialize_type and
+                type(value) not in self.allowed_typecasts
+            ):
+                raise ValueInvalidType(self, value)
+            else:
+                return self.deserialize_type(value)
+        else:
+            return value
+
+    def _deserialize(self, value, **kwargs):
+        """
+        By default returns the given `value` as is, but if a field needs
+        special treatment for deserializing the field subclass can
+        overwrite this method.
+        """
+        return value
 
     def master_field(self):
         """
@@ -60,8 +107,10 @@ class Field(object):
             class MySerializer(Serializer):
                 scores = ListField(IntField())
 
-        The `ListField` instance is a master field and the `IntField`
-        inside of it is an embedded field.
+        The `ListField` instance is a master field because it is defined
+        as an attribute on the serializer, but the `IntField` is
+        embedded inside this `ListField` and is therefore not a master
+        field.
         """
 
         if self.master:
@@ -74,57 +123,43 @@ class StringField(Field):
     """
     A field containing a string.
     """
-
-    # The type of value `_deserialize` expects to get
     deserialize_type = unicode
-
-    def _serialize(self, value):
-        return value
-
-    def _deserialize(self, value):
-
-        if type(value) is not unicode:
-            raise ValueInvalidType(self, value)
-
-        return value
 
 
 class IntField(Field):
     """
-    A field containing an integer.
+    A 32-bit integer field.
     """
-
-    # The type of value `_deserialize` expects to get
     deserialize_type = int
 
-    def _serialize(self, value):
-        return value
 
-    def _deserialize(self, value):
+class LongField(Field):
+    """
+    A 64-bit integer field.
+    """
 
-        if type(value) is not int:
-            raise ValueInvalidType(self, value)
+    # Just type `int`, because BSON doesn't have a long type:
+    # http://bsonspec.org/#/specification
+    #
+    # MongoEngine's `LongField` maps to a 64-bit integer (instead of a
+    # 32-bit integer for `IntField`).
+    deserialize_type = int
 
-        return value
+
+class FloatField(Field):
+    """
+    A floating point number field.
+    """
+    deserialize_type = float
+    allowed_typecasts = [int, long]
 
 
 class BooleanField(Field):
     """
     A field containing a boolean.
     """
-
-    # The type of value `_deserialize` expects to get
     deserialize_type = bool
-
-    def _serialize(self, value):
-        return value
-
-    def _deserialize(self, value):
-
-        if type(value) is not bool:
-            raise ValueInvalidType(self, value)
-
-        return value
+    allowed_typecasts = [int]
 
 
 class DateTimeField(Field):
@@ -132,16 +167,12 @@ class DateTimeField(Field):
     A field containing a python datetime object.
     """
 
-    # The type of value `_deserialize` expects to get
     deserialize_type = unicode
 
     def _serialize(self, value):
         return value.isoformat()
 
-    def _deserialize(self, value):
-
-        if type(value) is not unicode:
-            raise ValueInvalidType(self, value)
+    def _deserialize(self, value, **kwargs):
 
         if value:
 
@@ -159,6 +190,8 @@ class DocumentField(Field):
     A field containing a document.
     """
 
+    deserialize_type = dict
+
     def __init__(self, sub_serializer, *args, **kwargs):
 
         self.sub_serializer = sub_serializer
@@ -172,13 +205,13 @@ class DocumentField(Field):
     def _serialize(self, data):
         return self.sub_serializer.serialize(data)
 
-    def _deserialize(self, data):
-
-        if type(data) is not dict:
-            raise ValueInvalidType(self, data)
+    def _deserialize(self, data, allow_readonly=False, **kwargs):
 
         try:
-            return self.sub_serializer.deserialize(data)
+            return self.sub_serializer.deserialize(
+                data,
+                allow_readonly=allow_readonly
+            )
         except FieldError as error:
             # If a `FieldError` exception occurs, we add this field as a
             # parent in the parent fields chain. This will be used for
@@ -196,7 +229,6 @@ class ListField(Field):
     Will serialize every item in the list using the provided sub_field.
     """
 
-    # The type of value `_deserialize` expects to get
     deserialize_type = list
 
     def __init__(self, sub_field, *args, **kwargs):
@@ -223,23 +255,34 @@ class ListField(Field):
         # Uses the `sub_field` to serialize the items in the list
         return [self.sub_field.serialize(item) for item in field_list]
 
-    def _deserialize(self, field_list):
-
-        if type(field_list) is not list:
-            raise ValueInvalidType(self, field_list)
-
+    def _deserialize(self, field_list, allow_readonly=False, **kwargs):
         # Uses the `sub_serializer` to deserialize the items in the list
-        return [self.sub_field.deserialize(item) for item in field_list]
+        return [
+            self.sub_field.deserialize(item, allow_readonly=allow_readonly)
+            for item in field_list
+            if item is not None  # Don't allow `None` values in lists
+        ]
+
 
 class ObjectIdField(Field):
     """
     A field containing a MongoDB ObjectId.
     http://docs.mongodb.org/manual/reference/object-id/
     """
+
     readonly = True
+    deserialize_type = unicode
 
     def _serialize(self, value):
         return unicode(value)
 
-    def _deserialize(self, value):
+    def _deserialize(self, value, **kwargs):
         return ObjectId(value)
+
+
+class DynamicField(Field):
+    """
+    A free form field which can hold any kind of value. Doesn't do any
+    serializing/deserializing on the data.
+    """
+    pass
