@@ -103,49 +103,59 @@ class MongoEngineResource(Resource):
         self.base_target_document = None
         self.target_parent = None
         self.target_document = None
-        self.base_document = True
-        self.target_list = self.all_documents()
+        self.is_base_document = True
         self.target_serializer = self.serializer
+        self.base_document = self.get_base_document()
+
+        if self.base_document:
+            self.target_list = None
+        else:
+            self.target_list = self.get_base_list()
 
         # Determines if the document should be created. If not `False`,
         # contains the value for the id for the new document.
         self.create = False
+
+        # The key for the identifier field in case a document needs to
+        # be created.
         self.create_identifier_field = 'id'
 
         if target_path:
 
-            identifier = target_path[0]
+            if not self.base_document:
 
-            try:
-                self.base_target_document = (
-                    self.target_document_obj.objects.get(id=identifier)
-                )
-            except DoesNotExist:
+                identifier = target_path[0]
 
-                if request.method == 'PUT':
-                    # If method is PUT, it should create the resource
-                    # at this location.
-                    self.create = identifier
-                else:
-                    abort(404, message=(
-                        "The resource specified with identifier '{}' "
-                        "could not be found".format(identifier)
+                try:
+                    self.base_target_document = (
+                        self.target_document_obj.objects.get(id=identifier)
+                    )
+                except DoesNotExist:
+
+                    if request.method == 'PUT':
+                        # If method is PUT, it should create the resource
+                        # at this location.
+                        self.create = identifier
+                    else:
+                        abort(404, message=(
+                            "The resource specified with identifier '{}' "
+                            "could not be found".format(identifier)
+                        ))
+
+                except ValidationError:
+                    abort(400, message=(
+                        "The formatting for the identifier '{}' is invalid".format(
+                            identifier
+                        )
                     ))
 
-            except ValidationError:
-                abort(400, message=(
-                    "The formatting for the identifier '{}' is invalid".format(
-                        identifier
-                    )
-                ))
-
-            self.target_document = self.base_target_document
-            self.target_list = None
-            target_path.pop(0)
+                self.target_document = self.base_target_document
+                self.target_list = None
+                target_path.pop(0)
 
             if target_path:
 
-                self.base_document = False
+                self.is_base_document = False
                 self.create = False
 
                 def init_deep_target(target_path, depth):
@@ -232,14 +242,26 @@ class MongoEngineResource(Resource):
 
                 init_deep_target(target_path, 0)
 
-    def all_documents(self):
+    def get_base_document(self):
         """
-        Returns all the documents that are exposed by this resource. By
-        default it will return all the documents that are associated to
-        the document Class `self.target_document`.
+        Returns the base document.
 
-        You can overwrite this method to limit the documents exposed in
-        this resource.
+        By default this is `None` because by default the base resource
+        returns a list of documents (returned by `get_base_list`).
+        However, if this method returns a document, the base resource
+        returns this document instead of a list.
+        """
+        return None
+
+    def get_base_list(self):
+        """
+        Returns the base list of documents.
+
+        By default it will return all the documents that are associated
+        to the document Class `self.target_document`.
+
+        You can overwrite this method to limit the base documents
+        exposed in this resource.
         """
         return self.document.objects
 
@@ -265,7 +287,7 @@ class MongoEngineResource(Resource):
 
         else:
 
-            if self.is_base_document():
+            if self.is_base_document:
                 return self.get_list_serialized(
                     self.get_list(*args, **kwargs)
                 )
@@ -321,21 +343,13 @@ class MongoEngineResource(Resource):
         Returns all documents that are exposed in this request.
         """
         # If the target document is the base document, use the
-        # `all_documents()` method, otherwise, use the `objects`
+        # `get_base_list()` method, otherwise, use the `objects`
         # property, because target documents are subsets of the base
         # document and won't have to be limitted.
-        if self.is_base_document():
-            return self.all_documents()
+        if self.is_base_document:
+            return self.get_base_list()
         else:
             return self.target_list
-
-    def is_base_document(self):
-        """
-        Returns True if the request is targetted at the base document.
-        Returns False if the request is targetted at any deeper level
-        inside the document (like list fields or embedded documents).
-        """
-        return self.base_document
 
     def _serialize_query(self, query):
         """
@@ -503,7 +517,7 @@ class MongoEngineResource(Resource):
 
             response = []
 
-            if self.is_base_document():
+            if self.is_base_document:
 
                 documents = []
 
@@ -536,7 +550,7 @@ class MongoEngineResource(Resource):
 
         else:
 
-            if self.is_base_document():
+            if self.is_base_document:
                 document = self._process_document(request_data)
                 self._save_document(document)
                 response = self.target_serializer.serialize(document)
@@ -569,7 +583,7 @@ class MongoEngineResource(Resource):
         else:
             abort(400, message="No id provided")
 
-        if self.is_base_document():
+        if self.is_base_document:
 
             document = self._process_document(
                 self._request_data(),
@@ -632,7 +646,7 @@ class MongoEngineResource(Resource):
         if not self.target_document:
             abort(400, message="No id provided")
 
-        if self.is_base_document():
+        if self.is_base_document:
             self.target_document.delete()
         else:
 
