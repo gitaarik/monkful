@@ -390,7 +390,10 @@ class MongoEngineResource(Resource):
         # contains a slash at the start, so we should drop one of them.
         base_url = '{}{}'.format(request.url_root, request.path[1:])
         params = request.args.to_dict()
-        del params['page']
+
+        if 'page' in params:
+            del params['page']
+
         links = []
 
         def add_link(rel, params):
