@@ -1,3 +1,8 @@
+from __future__ import absolute_import, unicode_literals, division
+
+import urllib
+from math import ceil
+
 from flask import request
 from flask.ext.restful import Resource, abort
 from werkzeug.exceptions import BadRequest
@@ -9,14 +14,31 @@ from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
 from .helpers import json_type
-from .exceptions import InvalidQueryField
+from .exceptions import (
+    InvalidQueryField, InvalidPageParamFormat, PageOutOfRange
+)
 
 
 class MongoEngineResource(Resource):
 
+    # The amount of items on one page of the listview of a document
+    items_per_page = 100
+
+    # The query param used for paging
+    page_number_query_param = 'page'
+
+    # The headers that should be included in the response
+    headers = {}
+
     def __init__(self, *args, **kwargs):
+
         # Instantiate the serializer
         self.serializer = self.serializer()
+
+        # A list of reserved query params. These params can't be used
+        # for filters.
+        self.reserved_query_params = [self.page_number_query_param]
+
         super(MongoEngineResource, self).__init__(*args, **kwargs)
 
     def dispatch_request(self, *args, **kwargs):
@@ -31,6 +53,15 @@ class MongoEngineResource(Resource):
         ).dispatch_request(
             *args, **kwargs
         )
+
+    def make_response(self, data, status_code=200, extra_headers={}):
+        """
+        Returns the response parameters based on the parameters given.
+
+        Will update the `self.headers` dict with the `extra_headers`.
+        """
+        self.headers.update(extra_headers)
+        return data, status_code, self.headers
 
     def authenticate(self):
         """
@@ -127,7 +158,7 @@ class MongoEngineResource(Resource):
                 identifier = target_path[0]
 
                 try:
-                    self.base_document = self.get_base_document_for_identifier(
+                    self.base_document = self.get_base_document_by_identifier(
                         identifier
                     )
                 except DoesNotExist:
@@ -253,10 +284,20 @@ class MongoEngineResource(Resource):
         """
         return None
 
-    def get_base_document_for_identifier(self, identifier):
-        return (
-            self.target_document_obj.objects.get(id=identifier)
-        )
+    def get_base_document_by_identifier(self, identifier):
+        """
+        Returns the base document that matches the provided
+        `identifier`.
+
+        By default matches on the `id` field of the document. You can
+        overwrite this method if you want to alter this behavior.
+
+        This method is allowed to throw these MongoEngine exceptions:
+            - DoesNotExist
+            - ValidationError
+        These will be catched and handled correctly.
+        """
+        return self.target_document_obj.objects.get(id=identifier)
 
     def get_base_list(self):
         """
@@ -269,6 +310,114 @@ class MongoEngineResource(Resource):
         exposed in this resource.
         """
         return self.document.objects
+
+    def _apply_paging(self, documents):
+        """
+        Applies paging to the provided `documents` and adds related
+        headers to the response object.
+
+        Paging is based on the `page` param if it is given, else
+        defaults to the first page.
+
+        If the `page` param contains an invalid or an out of range
+        value, will abort with a 400 or a 404 respectively.
+        """
+
+        def get_total_pages(documents):
+            """
+            Returns the total amount of pages.
+            """
+
+            total_pages = int(ceil(documents.count() / self.items_per_page))
+
+            # Even if there are no documents, there should be at least one page
+            if total_pages == 0:
+                total_pages = 1
+
+            return total_pages
+
+        total_pages = get_total_pages(documents)
+
+        try:
+            page = self._get_page(total_pages)
+        except InvalidPageParamFormat, error:
+            abort(400, message="Invalid page '{}'".format(error.param))
+        except PageOutOfRange, error:
+            abort(404, message="Page '{}' is out of range".format(error.param))
+
+        end = page * self.items_per_page
+        start = end - self.items_per_page
+
+        self._add_paging_headers(page, self.items_per_page, total_pages)
+
+        return documents[start:end]
+
+    def _get_page(self, total_pages):
+        """
+        Returns the page of the listview that the client is requesting.
+
+        This is read from the `page` query param. If this is in invalid
+        format or out of range, will raise an `InvalidPageParamFormat`
+        or a `PageOutOfRange` error respectively.
+        """
+
+        page = request.args.get('page', '1')
+
+        # If the page param is empty just default to page 1
+        if not page:
+            page = '1'
+
+        if not page.isdigit():
+            raise InvalidPageParamFormat(page)
+
+        page = int(page)
+
+        if page < 1:
+            raise InvalidPageParamFormat(page)
+
+        if page > total_pages:
+            raise PageOutOfRange(page)
+
+        return page
+
+    def _add_paging_headers(self, current_page, items_per_page, total_pages):
+        """
+        Adds the HTTP headers related to paging of the listview of the
+        resource.
+        """
+
+        # request.url_root contains a slash at the end and request.path
+        # contains a slash at the start, so we should drop one of them.
+        base_url = '{}{}'.format(request.url_root, request.path[1:])
+        params = request.args.to_dict()
+
+        if 'page' in params:
+            del params['page']
+
+        links = []
+
+        def add_link(rel, params):
+            links.append({
+                'rel': rel,
+                'url': '{}?{}'.format(base_url, urllib.urlencode(params))
+            })
+
+        add_link('first', {'page': 1})
+
+        if current_page > 1:
+            add_link('prev', {'page': current_page - 1})
+
+        if current_page < total_pages:
+            add_link('next', {'page': current_page + 1})
+
+        add_link('last', {'page': total_pages})
+
+        self.headers.update({
+            'Link': ', '.join([
+                '<{}>; rel="{}"'.format(link['url'], link['rel'])
+                for link in links
+            ])
+        })
 
     def get(self, *args, **kwargs):
         """
@@ -286,20 +435,22 @@ class MongoEngineResource(Resource):
 
         if self.target_list is None:
 
-            return self.get_document_serialized(
+            data = self.get_document_serialized(
                 self.get_document(*args, **kwargs)
             )
 
         else:
 
             if self.is_base_document:
-                return self.get_list_serialized(
+                data = self.get_list_serialized(
                     self.get_list(*args, **kwargs)
                 )
             else:
-                return self.target_serializer.serialize(
+                data = self.target_serializer.serialize(
                     self.get_list(*args, **kwargs)
                 )
+
+        return self.make_response(data)
 
     def is_document(self, data):
         """
@@ -336,18 +487,24 @@ class MongoEngineResource(Resource):
         Returns the list of documents that should be returned on a GET
         request.
         """
+
         if request.args:
 
             if self.is_base_document:
-                return self._all_target_documents().filter(
-                    **self._serialize_query(request.args.to_dict())
+                documents = self._all_target_documents().filter(
+                    **self._get_filters(request.args.to_dict())
                 )
             else:
                 # TODO: make filters work for subdocuments
-                return self._all_target_documents()
+                documents = self._all_target_documents()
 
         else:
-            return self._all_target_documents()
+            documents = self._all_target_documents()
+
+        if self.is_base_document:
+            return self._apply_paging(documents)
+        else:
+            return documents
 
     def _all_target_documents(self):
         """
@@ -362,38 +519,42 @@ class MongoEngineResource(Resource):
         else:
             return self.target_list
 
-    def _serialize_query(self, query):
+    def _get_filters(self, query):
         """
-        Validates and serializes the values provided in a search query.
+        Returns the filters for the list view.
 
-        The idea is that the format for the search query is the same as
-        a MongoEngine query:
+        Validates and deserializes the values provided in the URL query
+        string. The idea is that the format for the search query is the
+        same as a MongoEngine query:
         http://docs.mongoengine.org/en/latest/guide/querying.html
         However, operators haven't been implemented (yet).
-
-        The values will automatically be deserialized.
         """
 
-        new_query = {}
+        filters = {}
 
         for key, value in query.items():
 
-            # Ignore empty query params
-            if not value:
+            if (
+                # Ignore empty query params
+                not value or
+
+                # Ignore params that are reserved
+                key in self.reserved_query_params
+            ):
                 continue
 
             try:
-                new_query[key] = self._deserialize_query_value(
+                filters[key] = self._get_filter_value(
                     key.split('__'), value
                 )
             except InvalidQueryField:
                 abort(400, message="Invalid query '{}'".format(key))
 
-        return new_query
+        return filters
 
-    def _deserialize_query_value(self, field_trace, value):
+    def _get_filter_value(self, field_trace, value):
         """
-        Returns the deserialized `value` for the field specified by the
+        Returns the deserialized `value` for the filter with
         `field_trace`.
 
         The `field_trace` should be a list of steps to the field. If its
@@ -401,7 +562,7 @@ class MongoEngineResource(Resource):
         ['fieldname']
         But if it's a field inside an embedded document, the list would
         look like:
-        ['embedded_doc_fieldname', 'fieldname']
+        ['parent_fieldname', 'child_fieldname']
 
         If the field doesn't exist on the serializer, it will raise an
         `InvalidQueryField` exception.
@@ -575,7 +736,7 @@ class MongoEngineResource(Resource):
                 self._save_document(self.base_document)
                 response = self.target_serializer.sub_field.serialize(document)
 
-        return response, 201
+        return self.make_response(response, 201)
 
     def put(self, *args, **kwargs):
         """
@@ -631,7 +792,7 @@ class MongoEngineResource(Resource):
         else:
             status_code = 200
 
-        return response, status_code
+        return self.make_response(response, status_code)
 
     def put_document(self, *args, **kwargs):
         """
@@ -670,7 +831,7 @@ class MongoEngineResource(Resource):
                     "field to null?"
                 ))
 
-        return None, 204
+        return self.make_response(None, 204)
 
     def _request_data(self):
         """
