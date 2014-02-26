@@ -386,9 +386,21 @@ class MongoEngineResource(Resource):
         resource.
         """
 
-        # request.url_root contains a slash at the end and request.path
-        # contains a slash at the start, so we should drop one of them.
-        base_url = '{}{}'.format(request.url_root, request.path[1:])
+        if total_pages == 1:
+            # If there's only one page there's no need to add paging
+            # links.
+            return
+
+        def get_base_url():
+            """
+            Returns the base url to be used to create links to other
+            pages.
+            """
+            # request.url_root contains a slash at the end and request.path
+            # contains a slash at the start, so we should drop one of them.
+            return '{}{}'.format(request.url_root, request.path[1:])
+
+        base_url = get_base_url()
         params = request.args.to_dict()
 
         if 'page' in params:
@@ -396,13 +408,15 @@ class MongoEngineResource(Resource):
 
         links = []
 
-        def add_link(rel, params):
+        def add_link(rel, extra_params):
+            """
+            Adds a link to the `links` list.
+            """
+            params.update(extra_params)
             links.append({
                 'rel': rel,
                 'url': '{}?{}'.format(base_url, urllib.urlencode(params))
             })
-
-        add_link('first', {'page': 1})
 
         if current_page > 1:
             add_link('prev', {'page': current_page - 1})
@@ -410,6 +424,7 @@ class MongoEngineResource(Resource):
         if current_page < total_pages:
             add_link('next', {'page': current_page + 1})
 
+        add_link('first', {'page': 1})
         add_link('last', {'page': total_pages})
 
         self.headers.update({
