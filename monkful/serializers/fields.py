@@ -1,6 +1,7 @@
 import inspect
 import dateutil.parser
 from bson.objectid import ObjectId
+from flask.ext.geoip import GeoIP
 from .exceptions import (
     FieldError, ValueInvalidType, ValueInvalidFormat,
     SerializeWriteonlyField, InvalidFieldSerializer
@@ -265,3 +266,17 @@ class DynamicField(Field):
 
     def _deserialize(self, value, **kwargs):
         return value
+        
+
+class ReferenceField(Field):
+    """
+    A field in which to store a reference id.
+    """
+
+    def _serialize(self, value):
+        return unicode(value)
+
+    def _deserialize(self, value, **kwargs):
+        return value
+    
+    
