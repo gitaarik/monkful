@@ -1,6 +1,5 @@
 from __future__ import absolute_import, unicode_literals, division
 
-import urllib
 from math import ceil
 
 from flask import request
@@ -9,6 +8,7 @@ from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 
+from .paging_links import PagingLinks
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
@@ -348,7 +348,7 @@ class MongoEngineResource(Resource):
         end = page * self.items_per_page
         start = end - self.items_per_page
 
-        self._add_paging_headers(page, self.items_per_page, total_pages)
+        self._add_paging_header(page, self.items_per_page, total_pages)
 
         return documents[start:end]
 
@@ -380,10 +380,15 @@ class MongoEngineResource(Resource):
 
         return page
 
-    def _add_paging_headers(self, current_page, items_per_page, total_pages):
+    def _add_paging_header(self, current_page, items_per_page, total_pages):
         """
-        Adds the HTTP headers related to paging of the listview of the
+        Adds the HTTP header related to paging of the listview of the
         resource.
+
+        This is the `Link` header, specified in:
+            http://tools.ietf.org/html/rfc5988
+        Monkful's implementation is inspired by the GitHub API:
+            http://developer.github.com/v3/#pagination
         """
 
         if total_pages == 1:
@@ -396,42 +401,26 @@ class MongoEngineResource(Resource):
             Returns the base url to be used to create links to other
             pages.
             """
-            # request.url_root contains a slash at the end and request.path
-            # contains a slash at the start, so we should drop one of them.
+            # `request.url_root` contains a slash at the end and
+            # `request.path` contains a slash at the start, so we should
+            # drop one of them.
             return '{}{}'.format(request.url_root, request.path[1:])
 
         base_url = get_base_url()
-        params = request.args.to_dict()
-
-        if 'page' in params:
-            del params['page']
-
-        links = []
-
-        def add_link(rel, extra_params):
-            """
-            Adds a link to the `links` list.
-            """
-            params.update(extra_params)
-            links.append({
-                'rel': rel,
-                'url': '{}?{}'.format(base_url, urllib.urlencode(params))
-            })
+        default_params = request.args.to_dict()
+        paging_links = PagingLinks(base_url, default_params)
 
         if current_page > 1:
-            add_link('prev', {'page': current_page - 1})
+            paging_links.add_link('prev', current_page - 1)
 
         if current_page < total_pages:
-            add_link('next', {'page': current_page + 1})
+            paging_links.add_link('next', current_page + 1)
 
-        add_link('first', {'page': 1})
-        add_link('last', {'page': total_pages})
+        paging_links.add_link('first', 1)
+        paging_links.add_link('last', total_pages)
 
         self.headers.update({
-            'Link': ', '.join([
-                '<{}>; rel="{}"'.format(link['url'], link['rel'])
-                for link in links
-            ])
+            'Link': ', '.join(paging_links.get_links())
         })
 
     def get(self, *args, **kwargs):
