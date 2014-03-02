@@ -30,8 +30,8 @@ class MongoEngineResource(Resource):
     # The headers that should be included in the response
     headers = {}
 
-    # The key for the identifier field in case a document needs to
-    # be created.
+    # The key for the identifier field in case a document needs to be
+    # created.
     create_identifier_field = 'id'
 
     def __init__(self, *args, **kwargs):
