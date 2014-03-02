@@ -1,0 +1,95 @@
+import unittest
+import json
+from pymongo import MongoClient
+from apps.basic_resource import server
+from apps.basic_resource.documents import Article
+
+
+class ResourcePostMultipleUnknownFieldInEmbeddedDocumentInList(unittest.TestCase):
+    """
+    Test if a HTTP POST request with multiple objects with an unknown
+    field in an embedded document in a list gives the correct response.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+
+        cls.app = server.app.test_client()
+        cls.mongo_client = MongoClient()
+
+        data = [
+            {
+                'title': "Test title",
+                'text': "Test text",
+                'comments': [
+                    {
+                        'text': "Test comment",
+                        'unknown_field': "This field doesn't exist"
+                    },
+                    {
+                        'text': "Test comment 2"
+                    }
+                ]
+            },
+            {
+                'title': "Test title 2",
+                'text': "Test text 2",
+                'comments': [
+                    {
+                        'text': "Test comment 3",
+                    },
+                    {
+                        'text': "Test comment 4"
+                    }
+                ]
+            }
+        ]
+
+        cls.response = cls.app.post(
+            '/articles/',
+            headers={'content-type': 'application/json'},
+            data=json.dumps(data)
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.mongo_client.unittest_monkful.article.remove()
+
+    def test_status_code(self):
+        """
+        Test if the response status code is 400.
+        """
+        self.assertEqual(self.response.status_code, 400)
+
+    def test_content_type(self):
+        """
+        Test if the content-type header is 'application/json'.
+        """
+        self.assertEqual(
+            self.response.headers['content-type'],
+            'application/json'
+        )
+
+    def test_json(self):
+        """
+        Test if the response data is valid JSON.
+        """
+        try:
+            json.loads(self.response.data)
+        except:
+            self.fail("Response is not valid JSON.")
+
+    def test_content(self):
+        """
+        Test if the response has a 'message'.
+        """
+        self.assertEqual(
+            json.loads(self.response.data)['message'],
+            "There is no field 'unknown_field' in 'comments' on this resource."
+        )
+
+    def test_documents(self):
+        """
+        Test if the documents are still empty.
+        """
+        self.assertEqual(Article.objects.count(), 0)

@@ -1,6 +1,6 @@
 import unittest
 from pymongo import MongoClient
-from tests.resource import *
+from tests.basic_resource import *
 
 
 # Empty article collection before running tests, in case the last test run
