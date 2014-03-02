@@ -30,6 +30,10 @@ class MongoEngineResource(Resource):
     # The headers that should be included in the response
     headers = {}
 
+    # The key for the identifier field in case a document needs to be
+    # created.
+    create_identifier_field = 'id'
+
     def __init__(self, *args, **kwargs):
 
         # Instantiate the serializer
@@ -146,10 +150,6 @@ class MongoEngineResource(Resource):
         # Determines if the document should be created. If not `False`,
         # contains the value for the id for the new document.
         self.create = False
-
-        # The key for the identifier field in case a document needs to
-        # be created.
-        self.create_identifier_field = 'id'
 
         if target_path:
 
