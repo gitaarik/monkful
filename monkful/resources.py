@@ -1,30 +1,71 @@
+from __future__ import absolute_import, unicode_literals, division
+
+from math import ceil
+
 from flask import request
 from flask.ext.restful import Resource, abort
 from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
 from mongoengine.errors import NotUniqueError, DoesNotExist, ValidationError
 
+from .paging_links import PagingLinks
 from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
 from .helpers import json_type
-from .exceptions import InvalidQueryField
+from .exceptions import (
+    InvalidQueryField, InvalidPageParamFormat, PageOutOfRange
+)
 
 
 class MongoEngineResource(Resource):
 
+    # The amount of items on one page of the listview of a document
+    items_per_page = 100
+
+    # The query param used for paging
+    page_number_query_param = 'page'
+
+    # The headers that should be included in the response
+    headers = {}
+
+    # The key for the identifier field in case a document needs to be
+    # created.
+    create_identifier_field = 'id'
+
     def __init__(self, *args, **kwargs):
+
         # Instantiate the serializer
         self.serializer = self.serializer()
+
+        # A list of reserved query params. These params can't be used
+        # for filters.
+        self.reserved_query_params = [self.page_number_query_param]
+
         super(MongoEngineResource, self).__init__(*args, **kwargs)
 
     def dispatch_request(self, *args, **kwargs):
+
         # Call authenticate for each request
         self.authenticate()
         self.check_request_content_type_header()
-        self.init_target_document_and_serializer(*args, **kwargs)
-        return super(MongoEngineResource, self).dispatch_request(*args, **kwargs)
+        self._init_target(*args, **kwargs)
+
+        return super(
+            MongoEngineResource, self
+        ).dispatch_request(
+            *args, **kwargs
+        )
+
+    def make_response(self, data, status_code=200, extra_headers={}):
+        """
+        Returns the response parameters based on the parameters given.
+
+        Will update the `self.headers` dict with the `extra_headers`.
+        """
+        self.headers.update(extra_headers)
+        return data, status_code, self.headers
 
     def authenticate(self):
         """
@@ -58,11 +99,11 @@ class MongoEngineResource(Resource):
             content_type != 'application/json'
         ):
 
-            abort(415, message=
+            abort(415, message=(
                 "Invalid Content-Type header '{}'. This resource "
                 "only supports 'application/json'."
                 .format(content_type)
-            )
+            ))
 
     def check_request_charset(self, charset):
         """
@@ -70,80 +111,317 @@ class MongoEngineResource(Resource):
         """
 
         if charset != 'charset=utf-8':
-            abort(415, message=
+            abort(415, message=(
                 "Invalid charset in Content-Type header '{}'. This resource "
                 "only supports 'charset=utf-8'."
                 .format(charset)
-            )
+            ))
 
-    def init_target_document_and_serializer(self, *args, **kwargs):
+    def _init_target(self, *args, **kwargs):
         """
         Initiates the target document and target serializer.
         """
 
-        if 'id' in kwargs:
+        self.target_path = []
 
-            self.target_document_obj = self.document
-            self.target_serializer = self.serializer
+        if 'path' in kwargs:
 
-            self.target_document = self.target_document_instance(
-                self.target_document_obj,
-                kwargs['id']
-            )
+            self.target_path = kwargs['path'].split('/')
 
-            if not self.target_document:
-                abort(404, message=
-                    "The resource specified with identifier '{}' could not be found"
-                    .format(kwargs['id'])
-                )
+            # the last item is usually an empty entry (because it splits
+            # on the last slash too) so if it's empty, pop it.
+            if self.target_path and not self.target_path[-1]:
+                self.target_path.pop()
 
-            if 'em_doc1' in kwargs:
+        self.target_document_obj = self.document
+        target_path = self.target_path[:]
+        self.target_parent = None
+        self.target_document = None
+        self.is_base_document = True
+        self.target_serializer = self.serializer
+        self.base_document = self.get_base_document()
 
-                self.target_document_obj = getattr(self.document, kwargs['em_doc1'])
-                self.target_serializer = getattr(self.serializer, kwargs['em_doc1'])
-
-                if isinstance(self.target_document_obj, fields.ListField):
-                    self.target_document_obj.objects = self.target_document[kwargs['em_doc1']]
-                    self.target_serializer = self.target_serializer.sub_field.sub_serializer
-
-                self.target_document = None
-
+        if self.base_document:
+            self.target_list = None
+            self.target_document = self.base_document
         else:
+            self.target_list = self.get_base_list()
 
-            self.target_document_obj = self.document
-            self.target_document = None
-            self.target_serializer = self.serializer
+        # Determines if the document should be created. If not `False`,
+        # contains the value for the id for the new document.
+        self.create = False
 
-    def target_document_instance(self, document_obj, identifier):
-        """
-        Get a document instance from the provided `document_obj` based
-        on the `identifier`.
-        """
-        if self.is_base_document():
-            return self.document_instance(identifier)
-        else:
-            # TODO: get target document based on `identifier`
-            pass
+        if target_path:
 
-    def document_instance(self, identifier):
-        """
-        Get a document instance based on `identifier`.
-        """
-        try:
-            return self.document.objects.get(id=identifier)
-        except (DoesNotExist, ValidationError):
-            return False
+            if not self.base_document:
 
-    def all_documents(self):
-        """
-        Returns all the documents that are exposed by this resource. By
-        default it will return all the documents that are associated to
-        the document Class `self.target_document`.
+                identifier = target_path[0]
 
-        You can overwrite this method to limit the documents exposed in
-        this resource.
+                try:
+                    self.base_document = self.get_base_document_by_identifier(
+                        identifier
+                    )
+                except DoesNotExist:
+
+                    if request.method == 'PUT':
+                        # If method is PUT, it should create the resource
+                        # at this location.
+                        self.create = identifier
+                    else:
+                        abort(404, message=(
+                            "The resource specified with identifier '{}' "
+                            "could not be found".format(identifier)
+                        ))
+
+                except ValidationError:
+                    abort(400, message=(
+                        "The formatting for the identifier '{}' is invalid".format(
+                            identifier
+                        )
+                    ))
+
+                self.target_document = self.base_document
+                self.target_list = None
+                target_path.pop(0)
+
+            if target_path:
+
+                self.is_base_document = False
+                self.create = False
+
+                def init_deep_target(target_path, depth):
+
+                    identifier = target_path[0]
+                    depth += 1
+
+                    if self.target_list:
+
+                        identifier_field = None
+                        self.target_serializer = (
+                            self.target_serializer.sub_field.sub_serializer
+                        )
+
+                        for fieldname, field in (
+                            self.target_serializer._fields().items()
+                        ):
+                            if field.identifier:
+                                identifier_field = fieldname
+                                identifier = field.deserialize(identifier)
+
+                        if identifier_field:
+
+                            for i, document in enumerate(self.target_list):
+                                if getattr(document, identifier_field) == identifier:
+                                    self.target_parent_document = None
+                                    self.target_parent_list = self.target_list
+                                    self.target_document = self.target_list[i]
+                                    self.target_list = None
+                                    self.target_document_obj = (
+                                        self.document.comments.field.document_type
+                                    )
+                                    break
+
+                            if not self.target_document:
+
+                                if request.method == 'PUT' and len(target_path) == 1:
+                                    self.create = target_path[0]
+                                    self.create_identifier_field = identifier_field
+                                    self.target_document_obj = self.target_document_obj.field.document_type
+                                else:
+                                    abort(404, message=(
+                                        "The resource specified with identifier '{}' could not be "
+                                        "found".format(identifier)
+                                    ))
+
+                        else:
+
+                            abort(404, message=(
+                                "The resource specified with identifier '{}' could not be "
+                                "found".format(identifier)
+                            ))
+
+                    else:
+
+                        try:
+                            self.target_serializer = getattr(self.target_serializer, identifier)
+                        except AttributeError:
+                            abort(404, message=(
+                                "The resource specified with identifier '{}' could not be "
+                                "found".format(identifier)
+                            ))
+
+                        if isinstance(self.target_serializer, serializer_fields.DocumentField):
+                            self.target_serializer = self.target_serializer.sub_serializer
+
+                        self.target_document_obj = getattr(self.target_document_obj, identifier)
+
+                        if isinstance(self.target_document_obj, fields.EmbeddedDocumentField):
+                            self.target_document_obj = self.target_document_obj.document_type
+
+                        self.target_parent_document = self.target_document
+                        self.target_parent_list = None
+                        self.target_list = None
+                        self.target_document = getattr(self.target_document, identifier)
+
+                        if isinstance(self.target_document_obj, fields.ListField):
+                            self.target_list = self.target_document
+                            self.target_document = None
+
+                    target_path.pop(0)
+                    if target_path:
+                        init_deep_target(target_path, depth)
+
+                init_deep_target(target_path, 0)
+
+    def get_base_document(self):
+        """
+        Returns the base document.
+
+        By default this is `None` because by default the base resource
+        returns a list of documents (returned by `get_base_list`).
+        However, if this method returns a document, the base resource
+        returns this document instead of a list.
+        """
+        return None
+
+    def get_base_document_by_identifier(self, identifier):
+        """
+        Returns the base document that matches the provided
+        `identifier`.
+
+        By default matches on the `id` field of the document. You can
+        overwrite this method if you want to alter this behavior.
+
+        This method is allowed to throw these MongoEngine exceptions:
+            - DoesNotExist
+            - ValidationError
+        These will be catched and handled correctly.
+        """
+        return self.target_document_obj.objects.get(id=identifier)
+
+    def get_base_list(self):
+        """
+        Returns the base list of documents.
+
+        By default it will return all the documents that are associated
+        to the document Class `self.target_document`.
+
+        You can overwrite this method to limit the base documents
+        exposed in this resource.
         """
         return self.document.objects
+
+    def _apply_paging(self, documents):
+        """
+        Applies paging to the provided `documents` and adds related
+        headers to the response object.
+
+        Paging is based on the `page` param if it is given, else
+        defaults to the first page.
+
+        If the `page` param contains an invalid or an out of range
+        value, will abort with a 400 or a 404 respectively.
+        """
+
+        def get_total_pages(documents):
+            """
+            Returns the total amount of pages.
+            """
+
+            total_pages = int(ceil(documents.count() / self.items_per_page))
+
+            # Even if there are no documents, there should be at least one page
+            if total_pages == 0:
+                total_pages = 1
+
+            return total_pages
+
+        total_pages = get_total_pages(documents)
+
+        try:
+            page = self._get_page(total_pages)
+        except InvalidPageParamFormat, error:
+            abort(400, message="Invalid page '{}'".format(error.param))
+        except PageOutOfRange, error:
+            abort(404, message="Page '{}' is out of range".format(error.param))
+
+        end = page * self.items_per_page
+        start = end - self.items_per_page
+
+        self._add_paging_header(page, self.items_per_page, total_pages)
+
+        return documents[start:end]
+
+    def _get_page(self, total_pages):
+        """
+        Returns the page of the listview that the client is requesting.
+
+        This is read from the `page` query param. If this is in invalid
+        format or out of range, will raise an `InvalidPageParamFormat`
+        or a `PageOutOfRange` error respectively.
+        """
+
+        page = request.args.get('page', '1')
+
+        # If the page param is empty just default to page 1
+        if not page:
+            page = '1'
+
+        if not page.isdigit():
+            raise InvalidPageParamFormat(page)
+
+        page = int(page)
+
+        if page < 1:
+            raise InvalidPageParamFormat(page)
+
+        if page > total_pages:
+            raise PageOutOfRange(page)
+
+        return page
+
+    def _add_paging_header(self, current_page, items_per_page, total_pages):
+        """
+        Adds the HTTP header related to paging of the listview of the
+        resource.
+
+        This is the `Link` header, specified in:
+            http://tools.ietf.org/html/rfc5988
+        Monkful's implementation is inspired by the GitHub API:
+            http://developer.github.com/v3/#pagination
+        """
+
+        if total_pages == 1:
+            # If there's only one page there's no need to add paging
+            # links.
+            return
+
+        def get_base_url():
+            """
+            Returns the base url to be used to create links to other
+            pages.
+            """
+            # `request.url_root` contains a slash at the end and
+            # `request.path` contains a slash at the start, so we should
+            # drop one of them.
+            return '{}{}'.format(request.url_root, request.path[1:])
+
+        base_url = get_base_url()
+        default_params = request.args.to_dict()
+        paging_links = PagingLinks(base_url, default_params)
+
+        if current_page > 1:
+            paging_links.add_link('prev', current_page - 1)
+
+        if current_page < total_pages:
+            paging_links.add_link('next', current_page + 1)
+
+        paging_links.add_link('first', 1)
+        paging_links.add_link('last', total_pages)
+
+        self.headers.update({
+            'Link': ', '.join(paging_links.get_links())
+        })
 
     def get(self, *args, **kwargs):
         """
@@ -159,12 +437,24 @@ class MongoEngineResource(Resource):
         will raise a 404.
         """
 
-        data = self.get_data(*args, **kwargs)
+        if self.target_list is None:
 
-        if self.is_document(data):
-            return self.get_document_serialized(data)
+            data = self.get_document_serialized(
+                self.get_document(*args, **kwargs)
+            )
+
         else:
-            return self.get_list_serialized(data)
+
+            if self.is_base_document:
+                data = self.get_list_serialized(
+                    self.get_list(*args, **kwargs)
+                )
+            else:
+                data = self.target_serializer.serialize(
+                    self.get_list(*args, **kwargs)
+                )
+
+        return self.make_response(data)
 
     def is_document(self, data):
         """
@@ -190,24 +480,6 @@ class MongoEngineResource(Resource):
         """
         return [self.target_serializer.serialize(d) for d in queryset]
 
-    def get_data(self, *args, **kwargs):
-        """
-        Returns the data that should be returned on GET requests.
-
-        The default behaviour is:
-        If there's an `id` parameter in the url variables it will try to
-        find the document with that id and return that document.
-        If there's a search query in the url it will try to find
-        documents with that search query and return those.
-        Else it will return all documents.
-
-        You can overwrite this method to alter this behaviour.
-        """
-        if self.target_document:
-            return self.get_document(*args, **kwargs)
-        else:
-            return self.get_list(*args, **kwargs)
-
     def get_document(self, *args, **kwargs):
         """
         Returns the document that should be returned on a GET request.
@@ -219,65 +491,74 @@ class MongoEngineResource(Resource):
         Returns the list of documents that should be returned on a GET
         request.
         """
+
         if request.args:
-            return self._all_target_documents().filter(
-                **self._serialize_query(request.args.to_dict())
-            )
+
+            if self.is_base_document:
+                documents = self._all_target_documents().filter(
+                    **self._get_filters(request.args.to_dict())
+                )
+            else:
+                # TODO: make filters work for subdocuments
+                documents = self._all_target_documents()
+
         else:
-            return self._all_target_documents()
+            documents = self._all_target_documents()
+
+        if self.is_base_document:
+            return self._apply_paging(documents)
+        else:
+            return documents
 
     def _all_target_documents(self):
         """
         Returns all documents that are exposed in this request.
         """
         # If the target document is the base document, use the
-        # `all_documents()` method, otherwise, use the `objects`
+        # `get_base_list()` method, otherwise, use the `objects`
         # property, because target documents are subsets of the base
         # document and won't have to be limitted.
-        if self.is_base_document():
-            return self.all_documents()
+        if self.is_base_document:
+            return self.get_base_list()
         else:
-            return self.target_document_obj.objects
+            return self.target_list
 
-    def is_base_document(self):
+    def _get_filters(self, query):
         """
-        Returns True if `self.target_document_obj` is the base document
-        (`self.document`). Otherwise returns False.
-        """
-        return self.target_document_obj is self.document
+        Returns the filters for the list view.
 
-    def _serialize_query(self, query):
-        """
-        Validates and serializes the values provided in a search query.
-
-        The idea is that the format for the search query is the same as
-        a MongoEngine query:
+        Validates and deserializes the values provided in the URL query
+        string. The idea is that the format for the search query is the
+        same as a MongoEngine query:
         http://docs.mongoengine.org/en/latest/guide/querying.html
         However, operators haven't been implemented (yet).
-
-        The values will automatically be deserialized.
         """
 
-        new_query = {}
+        filters = {}
 
         for key, value in query.items():
 
-            # Ignore empty query params
-            if not value:
+            if (
+                # Ignore empty query params
+                not value or
+
+                # Ignore params that are reserved
+                key in self.reserved_query_params
+            ):
                 continue
 
             try:
-                new_query[key] = self._deserialize_query_value(
+                filters[key] = self._get_filter_value(
                     key.split('__'), value
                 )
             except InvalidQueryField:
                 abort(400, message="Invalid query '{}'".format(key))
 
-        return new_query
+        return filters
 
-    def _deserialize_query_value(self, field_trace, value):
+    def _get_filter_value(self, field_trace, value):
         """
-        Returns the serialized `value` for the field specified by the
+        Returns the deserialized `value` for the filter with
         `field_trace`.
 
         The `field_trace` should be a list of steps to the field. If its
@@ -285,13 +566,29 @@ class MongoEngineResource(Resource):
         ['fieldname']
         But if it's a field inside an embedded document, the list would
         look like:
-        ['embedded_doc_fieldname', 'fieldname']
+        ['parent_fieldname', 'child_fieldname']
 
         If the field doesn't exist on the serializer, it will raise an
         `InvalidQueryField` exception.
         """
 
-        def deserialize_query_value(field_trace, serializer):
+        def url_decode_value(serializer_field, value):
+            """
+            Will decode the url value to the correct type corresponding
+            to the given `serializer_field`.
+
+            For example, if the `field` is an `IntField`, will cast the
+            value to an int.
+            """
+
+            deserialize_type = serializer_field.deserialize_type
+
+            if deserialize_type:
+                return deserialize_type(value)
+            else:
+                return value
+
+        def deserialize_query_value(field_trace, serializer, value):
             """
             Will walk through the `field_trace` by calling itself
             recursively and return the deserialized value in the end.
@@ -306,24 +603,29 @@ class MongoEngineResource(Resource):
             # Check if field exists on serializer
             if field in serializer._fields():
 
+                serializer_field = serializer._field(field)
+
                 # If there are still fields in the `field_trace` go on
                 if field_trace:
-
-                    serializer_field = serializer._field(field)
 
                     # If the field is a list field with a document
                     # field inside, recurse with the serializer from
                     # that document.
-                    if (isinstance(
-                        serializer_field,
-                        serializer_fields.ListField
-                    ) and isinstance(
-                        serializer_field.sub_field,
-                        serializer_fields.DocumentField
-                    )):
+                    if (
+                        isinstance(
+                            serializer_field,
+                            serializer_fields.ListField
+                        )
+                        and
+                        isinstance(
+                            serializer_field.sub_field,
+                            serializer_fields.DocumentField
+                        )
+                    ):
                         return deserialize_query_value(
                             field_trace,
-                            serializer_field.sub_field.sub_serializer
+                            serializer_field.sub_field.sub_serializer,
+                            value
                         )
 
                     # If the field is a document field inside, recurse
@@ -334,7 +636,8 @@ class MongoEngineResource(Resource):
                     )):
                         return deserialize_query_value(
                             field_trace,
-                            serializer_field.sub_serializer
+                            serializer_field.sub_serializer,
+                            value
                         )
 
                     # Otherwise the trace was too deep and invalid
@@ -345,12 +648,25 @@ class MongoEngineResource(Resource):
                     # If there are no fields in the `field_trace` it
                     # means we found the serializer for the field, so
                     # return the deserialized value for it.
-                    return serializer._field(field).deserialize(value)
+
+                    if isinstance(
+                        serializer_field,
+                        serializer_fields.ListField
+                    ):
+                        value = value.split(',')
+
+                    return serializer_field.deserialize(
+                        url_decode_value(serializer_field, value)
+                    )
 
             else:
                 raise InvalidQueryField(field)
 
-        return deserialize_query_value(field_trace, self.target_serializer)
+        return deserialize_query_value(
+            field_trace,
+            self.target_serializer,
+            value
+        )
 
     def post(self, *args, **kwargs):
         """
@@ -363,31 +679,68 @@ class MongoEngineResource(Resource):
         into JSON format by the serializer.
         """
 
+        if self.target_list is None:
+            # If the target is not at a list, then it's at an item, and
+            # you can't update items with POST.
+            abort(405, message=(
+                "Can't update an item with POST, use PUT instead."
+            ))
+
         request_data = self._request_data()
 
         if isinstance(request_data, list):
             # Process multiple documents
 
-            documents = []
-
-            for item in request_data:
-                documents.append(self._process_document(item))
-
-            # If we come here, it means `_process_document()` didn't
-            # `abort()`, so the request data was not malformed, so we
-            # can save the documents now.
-
             response = []
-            for document in documents:
-                self._save_document(document)
-                response.append(self.target_serializer.serialize(document))
+
+            if self.is_base_document:
+
+                documents = []
+
+                for item in request_data:
+                    documents.append(self._process_document(item))
+
+                # If we come here, it means `_process_document()` didn't
+                # `abort()`, so the request data was not malformed, so we
+                # can save the documents now.
+
+                for document in documents:
+                    self._save_document(document)
+                    response.append(self.target_serializer.serialize(document))
+
+            else:
+
+                new_documents = []
+
+                for item in (
+                    self.target_serializer.deserialize(request_data)
+                ):
+                    document = self.target_document_obj.field.document_type(
+                        **item
+                    )
+                    new_documents.append(document)
+                    self.target_list.append(document)
+
+                self._save_document(self.base_document)
+                response = self.target_serializer.serialize(new_documents)
 
         else:
-            document = self._process_document(request_data)
-            self._save_document(document)
-            response = self.target_serializer.serialize(document)
 
-        return response, 201
+            if self.is_base_document:
+                document = self._process_document(request_data)
+                self._save_document(document)
+                response = self.target_serializer.serialize(document)
+            else:
+                document = self.target_document_obj.field.document_type(
+                    **self.target_serializer.sub_field.deserialize(
+                        request_data
+                    )
+                )
+                self.target_list.append(document)
+                self._save_document(self.base_document)
+                response = self.target_serializer.sub_field.serialize(document)
+
+        return self.make_response(response, 201)
 
     def put(self, *args, **kwargs):
         """
@@ -398,21 +751,52 @@ class MongoEngineResource(Resource):
         new document instead of updating one.
         """
 
-        put_document = self.put_document(*args, **kwargs)
-
-        document = self._process_document(
-            self._request_data(),
-            document=put_document
-        )
-        self._save_document(document)
-        response = self.target_serializer.serialize(document)
-
-        if put_document:
-            status_code = 200
+        if self.target_document:
+            put_document = self.target_document
+        elif self.create:
+            obj_params = {self.create_identifier_field: self.create}
+            put_document = self.target_document_obj(**obj_params)
         else:
-            status_code = 201
+            abort(400, message="No id provided")
 
-        return response, status_code
+        if self.is_base_document:
+
+            document = self._process_document(
+                self._request_data(),
+                document=put_document
+            )
+            self._save_document(document)
+            response = self.target_serializer.serialize(document)
+
+        else:
+
+            document = self.target_document_obj(
+                **self.target_serializer.deserialize(self._request_data())
+            )
+
+            for fieldname in document:
+
+                if getattr(self.target_serializer, fieldname).identifier:
+                    # Ignore the identifier field because we already
+                    # have the values for him.
+                    continue
+
+                put_document[fieldname] = document[fieldname]
+
+            if self.create:
+                # If the document is new we still need to add this
+                # document to the list.
+                self.target_list.append(put_document)
+
+            self._save_document(self.base_document)
+            response = self.target_serializer.serialize(put_document)
+
+        if self.create:
+            status_code = 201
+        else:
+            status_code = 200
+
+        return self.make_response(response, status_code)
 
     def put_document(self, *args, **kwargs):
         """
@@ -428,10 +812,6 @@ class MongoEngineResource(Resource):
 
         You can overwrite this method to alter the default behaviour.
         """
-
-        if not self.target_document:
-            abort(400, message="No id provided")
-
         return self.target_document
 
     def delete(self, *args, **kwargs):
@@ -442,15 +822,20 @@ class MongoEngineResource(Resource):
         if not self.target_document:
             abort(400, message="No id provided")
 
-        if self.is_base_document():
+        if self.is_base_document:
             self.target_document.delete()
         else:
-            # TODO: remove the target document from the base document and save the base document
-            pass
 
-        return {
-            'details': "Successfully deleted resource"
-        }
+            if self.target_parent_list:
+                self.target_parent_list.remove(self.target_document)
+                self._save_document(self.base_document)
+            else:
+                abort(400, message=(
+                    "Can't delete a field. Maybe you want to update the "
+                    "field to null?"
+                ))
+
+        return self.make_response(None, 204)
 
     def _request_data(self):
         """
@@ -636,9 +1021,11 @@ class MongoEngineResource(Resource):
         Creates a document with the provided data.
         Will return the created document.
         """
-        return self.target_document_obj(**data)
+        return self.document(**data)
 
-    def _update_document(self, document, data):
+    def _update_document(
+        self, document, data, serializer=None, update_lists=False
+    ):
         """
         Updates the provided `document` with the provided `data`.
 
@@ -663,26 +1050,51 @@ class MongoEngineResource(Resource):
 
                 new_value = []
 
+                # Set the parent field so children can get
+                # information about their parent, as is used in
+                # `documentfield_value()`.
+                item_parent = {
+                    'field': field,
+                    'value': cur_value
+                }
+
+                if update_lists and isinstance(
+                    field.field, fields.EmbeddedDocumentField
+                ):
+
+                    identifier_field = None
+
+                    for fieldname, item_field in (
+                        serializer.sub_field.sub_serializer._fields().items()
+                    ):
+                        if item_field.identifier:
+                            identifier_field = fieldname
+
+                    if identifier_field:
+
+                        for cur_value_item in cur_value:
+
+                            keep_value = True
+
+                            for item in data:
+                                if (
+                                    identifier_field in item and
+                                    cur_value_item[identifier_field] ==
+                                    item[identifier_field]
+                                ):
+                                    keep_value = False
+
+                            if keep_value:
+                                new_value.append(cur_value_item)
+
                 # Loop through the items in the `data`
                 for item in data:
-
-                    # Get the document's field instance for the field
-                    # encapsuled inside the list-field.
-                    field_item = field.field
-
-                    # Set the parent field so children can get
-                    # information about their parent, as is used in
-                    # `documentfield_value()`.
-                    item_parent = {
-                        'field': field,
-                        'value': cur_value
-                    }
 
                     # Append the value for the field returned by
                     # `field_value()`.
                     new_value.append(
                         field_value(
-                            field_item, None, item,
+                            field.field, None, item,
                             serializer.sub_field, item_parent
                         )
                     )
@@ -762,10 +1174,7 @@ class MongoEngineResource(Resource):
 
             if isinstance(field, fields.ListField):
                 return listfield_value()
-            elif (
-                isinstance(field, fields.EmbeddedDocumentField) or
-                isinstance(field, fields.ReferenceField)
-            ):
+            elif isinstance(field, fields.EmbeddedDocumentField):
                 return documentfield_value()
             else:
                 return data
@@ -798,7 +1207,10 @@ class MongoEngineResource(Resource):
 
             return document
 
-        return update_document(document, data, self.target_serializer)
+        if not serializer:
+            serializer = self.target_serializer
+
+        return update_document(document, data, serializer)
 
     def _save_document(self, document):
         """
@@ -815,26 +1227,30 @@ class MongoEngineResource(Resource):
 
             if self.allow_not_unique_error(error):
 
-                abort(409, message=
+                abort(409, message=(
                     "One or more fields are not unique. Please consult "
                     "the scheme of the resource and ensure that you "
-                    "satisfy unique constraints.",
+                    "satisfy unique constraints."),
                     error=unicode(error.message)
                 )
 
             else:
-                abort(409, message=
+                abort(409, message=(
                     "One or more fields are not unique. Please consult "
                     "the scheme of the resource and ensure that you "
                     "satisfy unique constraints."
-                )
+                ))
 
         except ValidationError, error:
 
             resource_errors = self._filter_validation_errors(error.errors)
 
             if resource_errors:
-                abort(400, message="The data did not validate.", errors=resource_errors)
+                abort(
+                    400,
+                    message="The data did not validate.",
+                    errors=resource_errors
+                )
             else:
                 # If there were no errors on resource fields, it means
                 # the user of the resource can't help it, so it's a
@@ -904,7 +1320,8 @@ class MongoEngineResource(Resource):
             `filter_errors()` with it's `sub_serializer`.
             """
 
-            if (field.__class__ is serializer_fields.ListField and
+            if (
+                field.__class__ is serializer_fields.ListField and
                 # Listfields can have errors on the field itself or on
                 # the field(s) inside it. If it has the method
                 # `values()` we know it are multiple errors.

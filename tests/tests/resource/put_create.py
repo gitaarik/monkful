@@ -5,13 +5,13 @@ from datetime import datetime
 from dateutil import parser
 from pymongo import MongoClient
 from app import server
-from app.documents import Article, Comment
+from app.documents import Article
 
 
-class ResourcePut(unittest.TestCase):
+class ResourcePutCreate(unittest.TestCase):
     """
-    Test if a HTTP PUT that updates a resource gives the right response
-    and updates the data in the database.
+    Test if a HTTP PUT that creates a resource gives the right response
+    and creates the document in the database.
     """
 
     @classmethod
@@ -20,24 +20,9 @@ class ResourcePut(unittest.TestCase):
         cls.app = server.app.test_client()
         cls.mongo_client = MongoClient()
 
-        cls.data_old = {
-            'title': "Test title old",
-            'text': "Test text old",
-            'publish': True,
-            'publish_date': datetime(2013, 10, 9, 8, 7, 8),
-            'comments': [
-                Comment(text="Test comment old", email="test@example.com"),
-                Comment(text="Test comment old 2", email="test2@example.com"),
+        article_id = "528a5250aa2649ffd8ce8a90"
 
-                # Test to see if this third comment gets removed on
-                # update
-                Comment(text="Test comment old 3", email="test3@example.com"),
-            ],
-            'top_comment': Comment(text="Top comment old"),
-            'tags': ['tag1 old', 'tag2 old', 'tag3 old']
-        }
-
-        cls.data_new = {
+        cls.data = {
             'title': "Test title new",
             'text': "Test text new",
             'publish': False,
@@ -50,7 +35,12 @@ class ResourcePut(unittest.TestCase):
                     'date': datetime(2010, 6, 5, 4, 3, 2).isoformat(),
 
                     # Test if this writeonly field will be updated
-                    'email': "test_updated@example.com"
+                    'email': "test_updated@example.com",
+
+                    'upvotes': [
+                        {'ip_address': '3.3.3.3'},
+                        {'ip_address': '4.4.4.4'}
+                    ]
                 },
                 {
                     'text': "Test comment new 2",
@@ -59,21 +49,30 @@ class ResourcePut(unittest.TestCase):
                     'date': datetime(2010, 5, 4, 3, 2, 1).isoformat(),
 
                     # Test if this writeonly field will be updated
-                    'email': "test2_updated@example.com"
+                    'email': "test2_updated@example.com",
+
+                    'upvotes': [
+                        {'ip_address': '5.5.5.5'},
+                        {'ip_address': '6.6.6.6'}
+                    ]
                 }
             ],
             'top_comment': {
-                'text': "Top comment new"
+                'text': "Top comment new",
+                'email': "test_updated@example.com",
+                'date': datetime(2011, 5, 7, 1, 3, 1).isoformat(),
+                'upvotes': [
+                    {'ip_address': "1.2.3.4"},
+                    {'ip_address': "2.2.3.4"}
+                ]
             },
-            'tags': ['tag1 new', 'tag2 new', 'tag3 new'],
+            'tags': ["tag1 new", "tag2 new", "tag3 new"],
         }
 
-        article = Article(**cls.data_old).save()
-
         cls.response = cls.app.put(
-            '/articles/{}/'.format(unicode(article['id'])),
+            '/articles/{}/'.format(unicode(article_id)),
             headers={'content-type': 'application/json'},
-            data=json.dumps(cls.data_new)
+            data=json.dumps(cls.data)
         )
 
     @classmethod
@@ -82,9 +81,9 @@ class ResourcePut(unittest.TestCase):
 
     def test_status_code(self):
         """
-        Test if the response status code is 200.
+        Test if the response status code is 201.
         """
-        self.assertEqual(self.response.status_code, 200)
+        self.assertEqual(self.response.status_code, 201)
 
     def test_content_type(self):
         """
@@ -128,7 +127,7 @@ class ResourcePut(unittest.TestCase):
             else:
                 self.assertNotEqual(
                     comment['date'],
-                    self.data_new['comments'][i]['date']
+                    self.data['comments'][i]['date']
                 )
 
         # Remap the response data so that it only has the fields our
@@ -140,14 +139,32 @@ class ResourcePut(unittest.TestCase):
             'publish_date': response_data['publish_date'],
             'comments': [
                 {
-                    'text': response_data['comments'][0]['text']
+                    'text': response_data['comments'][0]['text'],
+                    'upvotes': [
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][0]['ip_address']},
+                        {'ip_address': response_data['comments'][0]
+                            ['upvotes'][1]['ip_address']},
+                    ]
                 },
                 {
-                    'text': response_data['comments'][1]['text']
+                    'text': response_data['comments'][1]['text'],
+                    'upvotes': [
+                        {'ip_address': response_data['comments'][1]
+                            ['upvotes'][0]['ip_address']},
+                        {'ip_address': response_data['comments'][1]
+                            ['upvotes'][1]['ip_address']},
+                    ]
                 }
             ],
             'top_comment': {
-                'text': response_data['top_comment']['text']
+                'text': response_data['top_comment']['text'],
+                'upvotes': [
+                    {'ip_address': response_data['top_comment']
+                        ['upvotes'][0]['ip_address']},
+                    {'ip_address': response_data['top_comment']
+                        ['upvotes'][1]['ip_address']},
+                ]
             },
             'tags': response_data['tags']
         }
@@ -157,10 +174,13 @@ class ResourcePut(unittest.TestCase):
         # because they are readonly fields.
         # Also remove the `email` field because it's a writeonly field
         # and ins't be exposed in the API.
-        original_data = copy.deepcopy(self.data_new)
+        original_data = copy.deepcopy(self.data)
         for comment in original_data['comments']:
             del(comment['date'])
             del(comment['email'])
+
+        del(original_data['top_comment']['date'])
+        del(original_data['top_comment']['email'])
 
         self.assertEqual(response_data, original_data)
 
@@ -171,28 +191,37 @@ class ResourcePut(unittest.TestCase):
 
         article = Article.objects[0]
 
-        self.assertEqual(article.title, self.data_new['title'])
-        self.assertEqual(article.text, self.data_new['text'])
-        self.assertEqual(article.publish, self.data_new['publish'])
+        self.assertEqual(article.title, self.data['title'])
+        self.assertEqual(article.text, self.data['text'])
+        self.assertEqual(article.publish, self.data['publish'])
         self.assertEqual(
             article.publish_date.isoformat(),
-            self.data_new['publish_date']
+            self.data['publish_date']
         )
         self.assertEqual(
             article.comments[0].text,
-            self.data_new['comments'][0]['text']
+            self.data['comments'][0]['text']
         )
         self.assertEqual(
             article.comments[0].email,
-            self.data_new['comments'][0]['email']
+            self.data['comments'][0]['email']
         )
         self.assertEqual(
             article.comments[1].text,
-            self.data_new['comments'][1]['text']
+            self.data['comments'][1]['text']
         )
         self.assertEqual(
             article.comments[1].email,
-            self.data_new['comments'][1]['email']
+            self.data['comments'][1]['email']
+        )
+
+        self.assertEqual(
+            article.top_comment.text,
+            self.data['top_comment']['text']
+        )
+        self.assertEqual(
+            article.top_comment.email,
+            self.data['top_comment']['email']
         )
 
         # The complete `comments` field should've been overwritten so
@@ -201,5 +230,5 @@ class ResourcePut(unittest.TestCase):
 
         self.assertEqual(
             article.tags,
-            self.data_new['tags']
+            self.data['tags']
         )
