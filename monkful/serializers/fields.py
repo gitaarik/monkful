@@ -1,7 +1,6 @@
 import inspect
 import dateutil.parser
 from bson.objectid import ObjectId
-from flask.ext.geoip import GeoIP
 from .exceptions import (
     FieldError, ValueInvalidType, ValueInvalidFormat,
     SerializeWriteonlyField, InvalidFieldSerializer
