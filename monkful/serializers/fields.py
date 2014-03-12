@@ -286,3 +286,11 @@ class DynamicField(Field):
     serializing/deserializing on the data.
     """
     pass
+
+class ReferenceField(Field):
+    """
+    A field in which to store a reference id.
+    """
+
+    def _serialize(self, value):
+        return unicode(value)
