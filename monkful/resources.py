@@ -13,6 +13,7 @@ from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
+from .restdoc import RestDoc
 from .helpers import json_type
 from .exceptions import (
     InvalidQueryField, InvalidPageParamFormat, PageOutOfRange
@@ -26,6 +27,12 @@ class MongoEngineResource(Resource):
 
     # The query param used for paging
     page_number_query_param = 'page'
+
+    # The content type this resource accepts
+    accepted_content_type = 'application/json'
+
+    # The charset this resource accepts
+    accepted_charset = 'charset=utf-8'
 
     # The headers that should be included in the response
     headers = {}
@@ -96,7 +103,7 @@ class MongoEngineResource(Resource):
 
         if (
             request.method in ('POST', 'PUT') and
-            content_type != 'application/json'
+            content_type != self.accepted_content_type
         ):
 
             abort(415, message=(
@@ -110,12 +117,38 @@ class MongoEngineResource(Resource):
         Checks if the charset in the request is correct.
         """
 
-        if charset != 'charset=utf-8':
+        if charset != self.accepted_charset:
             abort(415, message=(
                 "Invalid charset in Content-Type header '{}'. This resource "
                 "only supports 'charset=utf-8'."
                 .format(charset)
             ))
+
+    def request_headers(self):
+        """
+        Returns a dict of request headers that are accepted by this
+        resource.
+        """
+        return {
+            'Content-Type': {
+                'description': "The media type of the body.",
+                'url': (
+                    'http://www.w3.org/'
+                    'Protocols/rfc2616/rfc2616-sec14.html#sec14.17'
+                ),
+                'required': True,
+            }
+        }
+
+    def response_headers(self):
+        return {
+            'Link': {
+                'description': (
+                    "The pagination links. Only returned on GET requests."
+                ),
+                'url': 'http://tools.ietf.org/html/rfc5988#section-5'
+            }
+        }
 
     def _init_target(self, *args, **kwargs):
         """
@@ -316,11 +349,12 @@ class MongoEngineResource(Resource):
         Applies paging to the provided `documents` and adds related
         headers to the response object.
 
-        Paging is based on the `page` param if it is given, else
-        defaults to the first page.
+        Paging is based on the value of the param of the name
+        `self.page_number_query_param` if it is given, else defaults to
+        the first page.
 
-        If the `page` param contains an invalid or an out of range
-        value, will abort with a 400 or a 404 respectively.
+        If this param contains an invalid or an out of range value, will
+        abort with a 400 or a 404 respectively.
         """
 
         def get_total_pages(documents):
@@ -356,12 +390,13 @@ class MongoEngineResource(Resource):
         """
         Returns the page of the listview that the client is requesting.
 
-        This is read from the `page` query param. If this is in invalid
-        format or out of range, will raise an `InvalidPageParamFormat`
-        or a `PageOutOfRange` error respectively.
+        This is read from the query param with the name of
+        `self.page_number_query_param`. If this is in invalid format or
+        out of range, will raise an `InvalidPageParamFormat` or a
+        `PageOutOfRange` error respectively.
         """
 
-        page = request.args.get('page', '1')
+        page = request.args.get(self.page_number_query_param, '1')
 
         # If the page param is empty just default to page 1
         if not page:
@@ -396,17 +431,7 @@ class MongoEngineResource(Resource):
             # links.
             return
 
-        def get_base_url():
-            """
-            Returns the base url to be used to create links to other
-            pages.
-            """
-            # `request.url_root` contains a slash at the end and
-            # `request.path` contains a slash at the start, so we should
-            # drop one of them.
-            return '{}{}'.format(request.url_root, request.path[1:])
-
-        base_url = get_base_url()
+        base_url = self.get_base_url()
         default_params = request.args.to_dict()
         paging_links = PagingLinks(base_url, default_params)
 
@@ -1379,3 +1404,20 @@ class MongoEngineResource(Resource):
         indicates where the exception was raised.
         """
         return False
+
+    def options(self, *args, **kwargs):
+        return RestDoc(
+            base_url=self.get_base_url(),
+            serializer=self.serializer,
+            request_headers=self.request_headers(),
+            response_headers=self.response_headers()
+        ).generate()
+
+    def get_base_url(self):
+        """
+        Returns the base URL for this resource.
+        """
+        # `request.url_root` contains a slash at the end and
+        # `request.path` contains a slash at the start, so we should
+        # drop one of them.
+        return '{}{}'.format(request.url_root, request.path[1:])

@@ -1,4 +1,4 @@
-Flask-RESTful==0.2.5
+Flask-RESTful==0.2.12
 mongoengine==0.8.4
 python-dateutil==2.1
 requests==1.2.3

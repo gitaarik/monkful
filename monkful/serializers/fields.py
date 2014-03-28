@@ -27,6 +27,9 @@ class Field(object):
         # If this field is a master field
         self.master = False
 
+        # Description of the field
+        self.description = kwargs.get('description')
+
         # If this is a read only field
         self.readonly = kwargs.get('readonly')
 
@@ -285,12 +288,16 @@ class DynamicField(Field):
     A free form field which can hold any kind of value. Doesn't do any
     serializing/deserializing on the data.
     """
-    pass
+
+    deserialize_type = None
+
 
 class ReferenceField(Field):
     """
     A field in which to store a reference id.
     """
+
+    deserialize_type = unicode
 
     def _serialize(self, value):
         return unicode(value)
