@@ -22,6 +22,19 @@ from .exceptions import (
 
 class MongoEngineResource(Resource):
 
+    # The name of this resource used for the RestDoc documentation
+    restdoc_name = None
+
+    # The description of this resource used for the RestDoc
+    # documentation.
+    restdoc_description = None
+
+    # The parameters of this resource used for the RestDoc documentation
+    restdoc_params = None
+
+    # The methods of this resource used for the RestDoc documentation
+    restdoc_methods = None
+
     # The amount of items on one page of the listview of a document
     items_per_page = 100
 
@@ -45,6 +58,9 @@ class MongoEngineResource(Resource):
 
         # Instantiate the serializer
         self.serializer = self.serializer()
+
+        if not self.restdoc_name:
+            self.restdoc_name = self.__class__.__name__
 
         # A list of reserved query params. These params can't be used
         # for filters.
@@ -131,10 +147,12 @@ class MongoEngineResource(Resource):
         """
         return {
             'Content-Type': {
-                'description': "The media type of the body.",
-                'url': (
-                    'http://www.w3.org/'
-                    'Protocols/rfc2616/rfc2616-sec14.html#sec14.17'
+                'description': (
+                    "The media type of the body.\n"
+                    "\n"
+                    "Specification:\n"
+                    "\n"
+                    "http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.17"
                 ),
                 'required': True,
             }
@@ -144,9 +162,17 @@ class MongoEngineResource(Resource):
         return {
             'Link': {
                 'description': (
-                    "The pagination links. Only returned on GET requests."
+                    "The pagination links. Only returned on GET requests.\n"
+                    "\n"
+                    "Specification:\n"
+                    "\n"
+                    "http://tools.ietf.org/html/rfc5988#section-5"
+                    "\n"
+                    "This implementation is inspired by the pagination \n"
+                    "implementation of GitHub. See their docs for more info:\n"
+                    "\n"
+                    "https://developer.github.com/v3/#pagination"
                 ),
-                'url': 'http://tools.ietf.org/html/rfc5988#section-5'
             }
         }
 
@@ -1406,12 +1432,22 @@ class MongoEngineResource(Resource):
         return False
 
     def options(self, *args, **kwargs):
-        return RestDoc(
-            base_url=self.get_base_url(),
-            serializer=self.serializer,
-            request_headers=self.request_headers(),
-            response_headers=self.response_headers()
-        ).generate()
+        """
+        Returns a RestDoc response and adds headers with info about
+        which HTTP methods can be used on this resource.
+        """
+        # TODO: Add headers with info about which HTTP methods can be
+        # used on this resource.
+        return self.rest_doc()
+
+    def rest_doc(self):
+        """
+        Returns a RestDoc for this resource.
+
+        For more information about RestDoc check:
+        http://www.restdoc.org
+        """
+        return RestDoc(self).generate()
 
     def get_base_url(self):
         """
@@ -1420,4 +1456,10 @@ class MongoEngineResource(Resource):
         # `request.url_root` contains a slash at the end and
         # `request.path` contains a slash at the start, so we should
         # drop one of them.
-        return '{}{}'.format(request.url_root, request.path[1:])
+        return '{}{}'.format(request.url_root, self.get_base_path())
+
+    def get_base_path(self):
+        """
+        Returns the base URL path of this resource.
+        """
+        return request.path[1:]

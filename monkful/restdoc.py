@@ -7,14 +7,8 @@ class RestDoc(object):
     http://www.restdoc.org/
     """
 
-    def __init__(
-        self, base_url, serializer,
-        request_headers, response_headers
-    ):
-        self.base_url = base_url
-        self.serializer = serializer
-        self.request_headers = request_headers
-        self.response_headers = response_headers
+    def __init__(self, resource):
+        self.resource = resource
 
     def generate(self):
 
@@ -27,7 +21,9 @@ class RestDoc(object):
     def get_schemas(self):
 
         return {
-            self.base_url: self.get_schema(self.serializer)
+            self.resource.get_base_url(): self.get_schema(
+                self.resource.serializer
+            )
         }
 
     def get_schema(self, serializer):
@@ -66,17 +62,17 @@ class RestDoc(object):
 
     def get_headers(self):
         return {
-            'request': self.request_headers,
-            'response': self.response_headers
+            'request': self.resource.request_headers(),
+            'response': self.resource.response_headers()
         }
 
     def get_resources(self):
         return [
             {
-                'id': '',
-                'description': '',
-                'path': '',
-                'params': {},
-                'methods': {}
+                'id': self.resource.restdoc_name,
+                'description': self.resource.restdoc_description,
+                'path': self.resource.get_base_path(),
+                'params': self.resource.restdoc_params,
+                'methods': self.resource.restdoc_methods
             },
         ]
