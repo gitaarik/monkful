@@ -109,15 +109,14 @@ class MongoEngineResource(Resource):
 
     def dispatch_request(self, *args, **kwargs):
 
-        # Call authenticate for each request
-        self.authenticate()
-        self.check_request_content_type_header()
-
         self.init_target_path(*args, **kwargs)
 
         if len(self.target_path) == 1 and self.target_path[0] == '!!':
             return self.html_doc()
         else:
+
+            self.authenticate()
+            self.check_request_content_type_header()
 
             self._init_target()
 
