@@ -1,4 +1,5 @@
 import os
+from markdown import markdown
 from flask import render_template_string
 from helpers import json_type
 from serializers import fields
@@ -24,6 +25,7 @@ class HtmlDoc(object):
 
         context = {
             'name': self.resource.name,
+            'description': markdown(self.resource.description),
             'fields': self.get_fields(self.resource.serializer),
             'sub_serializers': self.get_sub_serializers_info()
         }
@@ -76,7 +78,7 @@ class HtmlDoc(object):
 
         properties = {
             'type': json_type(field.deserialize_type),
-            'description': field.description,
+            'description': markdown(field.description),
         }
 
         if field.readonly:

@@ -23,6 +23,14 @@
                 margin-top: 0;
             }
 
+            h2 {
+                padding-top: 20px;
+            }
+
+            h3 {
+                padding-top: 10px;
+            }
+
             table {
                 width: 100%;
                 border-spacing: 0;
@@ -75,6 +83,14 @@
                 float: left;
             }
 
+            .description {
+                width: 800px;
+            }
+
+            .fields p {
+                margin: 0;
+            }
+
         </style>
 
     </head>
@@ -82,7 +98,11 @@
 
         <h1>{{ name }}</h1>
 
-        <table>
+        <div class="description">{{ description }}</div>
+
+        <h2>Base object</h2>
+
+        <table class="fields">
 
             <thead>
                 <tr>
@@ -114,43 +134,53 @@
 
         </table>
 
-        {% for name, serializer in sub_serializers.items() %}
+        {% if sub_serializers %}
 
-            <h2>{{ name }}</h2>
+            <h2>Sub objects</h2>
 
-            <table>
+            {% for name, serializer in sub_serializers.items() %}
 
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Description</th>
-                        <th>Extra info</th>
-                    </tr>
-                </thead>
+                <div class="object">
 
-                <tbody>
-                    {% for name, field in serializer.fields.items() %}
+                    <h3>{{ name }}</h3>
 
-                        <tr>
-                            <td>{{ name }}</td>
-                            <td>{{ field.type }}</td>
-                            <td>{{ field.description }}</td>
-                            <td>
-                                {% if field.readonly %}
-                                    readonly
-                                {% elif field.writeonly %}
-                                    writeonly
-                                {% endif %}
-                            </td>
-                        </tr>
+                    <table class="fields">
 
-                    {% endfor %}
-                </tbody>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th>Extra info</th>
+                            </tr>
+                        </thead>
 
-            </table>
+                        <tbody>
+                            {% for name, field in serializer.fields.items() %}
 
-        {% endfor %}
+                                <tr>
+                                    <td>{{ name }}</td>
+                                    <td>{{ field.type }}</td>
+                                    <td>{{ field.description }}</td>
+                                    <td>
+                                        {% if field.readonly %}
+                                            readonly
+                                        {% elif field.writeonly %}
+                                            writeonly
+                                        {% endif %}
+                                    </td>
+                                </tr>
+
+                            {% endfor %}
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            {% endfor %}
+
+        {% endif %}
 
     </body>
 </html>
