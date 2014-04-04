@@ -1,8 +1,10 @@
 from __future__ import absolute_import, unicode_literals, division
 
+import os
+import json
 from math import ceil
 
-from flask import request
+from flask import current_app, request, make_response, render_template_string
 from flask.ext.restful import Resource, abort
 from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
@@ -13,7 +15,7 @@ from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
-from .restdoc import RestDoc
+from .htmldoc import HtmlDoc
 from .helpers import json_type
 from .exceptions import (
     InvalidQueryField, InvalidPageParamFormat, PageOutOfRange
@@ -22,18 +24,11 @@ from .exceptions import (
 
 class MongoEngineResource(Resource):
 
-    # The name of this resource used for the RestDoc documentation
-    restdoc_name = None
+    # The name of this resource
+    name = None
 
-    # The description of this resource used for the RestDoc
-    # documentation.
-    restdoc_description = None
-
-    # The parameters of this resource used for the RestDoc documentation
-    restdoc_params = None
-
-    # The methods of this resource used for the RestDoc documentation
-    restdoc_methods = None
+    # The description of this resource
+    description = None
 
     # The amount of items on one page of the listview of a document
     items_per_page = 100
@@ -56,11 +51,13 @@ class MongoEngineResource(Resource):
 
     def __init__(self, *args, **kwargs):
 
+        self.init_html_output()
+
         # Instantiate the serializer
         self.serializer = self.serializer()
 
-        if not self.restdoc_name:
-            self.restdoc_name = self.__class__.__name__
+        if not self.name:
+            self.name = self.__class__.__name__
 
         # A list of reserved query params. These params can't be used
         # for filters.
@@ -68,18 +65,80 @@ class MongoEngineResource(Resource):
 
         super(MongoEngineResource, self).__init__(*args, **kwargs)
 
+    def init_html_output(self):
+        """
+        Initiates the HTML output method.
+
+        This method will be used for requests that have the Accept
+        header `text/html`.
+        """
+
+        @current_app.api.representation('text/html')
+        def output_html(data, code, headers={}):
+
+            if isinstance(data, dict) or isinstance(data, list):
+                data = self.html_resource(data)
+
+            return make_response(data, code)
+
+    def html_resource(self, data):
+        """
+        Returns a nice looking HTML resource page.
+
+        This is handy for developers that will implement the resource.
+        """
+
+        template_path = '{}'.format(
+            os.path.join(
+                os.path.dirname(__file__),
+                'templates',
+                'resource.html'
+            )
+        )
+
+        with open(template_path) as f:
+            template = f.read()
+
+        context = {
+            'name': self.name,
+            'docs_url': '{}!!'.format(self.get_base_url()),
+            'data': json.dumps(data, indent=4)
+        }
+
+        return render_template_string(template, **context)
+
     def dispatch_request(self, *args, **kwargs):
 
         # Call authenticate for each request
         self.authenticate()
         self.check_request_content_type_header()
-        self._init_target(*args, **kwargs)
 
-        return super(
-            MongoEngineResource, self
-        ).dispatch_request(
-            *args, **kwargs
-        )
+        self.init_target_path(*args, **kwargs)
+
+        if len(self.target_path) == 1 and self.target_path[0] == '!!':
+            return self.html_doc()
+        else:
+
+            self._init_target()
+
+            return super(
+                MongoEngineResource, self
+            ).dispatch_request(
+                *args, **kwargs
+            )
+
+    def init_target_path(self, *args, **kwargs):
+
+        self.target_path = []
+
+        if 'path' in kwargs:
+
+            self.target_path = kwargs['path'].split('/')
+
+            # the last item is usually an empty entry (because it splits
+            # on the last slash too) so if it's empty, pop it.
+            if self.target_path and not self.target_path[-1]:
+                self.target_path.pop()
 
     def make_response(self, data, status_code=200, extra_headers={}):
         """
@@ -176,21 +235,10 @@ class MongoEngineResource(Resource):
             }
         }
 
-    def _init_target(self, *args, **kwargs):
+    def _init_target(self):
         """
         Initiates the target document and target serializer.
         """
-
-        self.target_path = []
-
-        if 'path' in kwargs:
-
-            self.target_path = kwargs['path'].split('/')
-
-            # the last item is usually an empty entry (because it splits
-            # on the last slash too) so if it's empty, pop it.
-            if self.target_path and not self.target_path[-1]:
-                self.target_path.pop()
 
         self.target_document_obj = self.document
         target_path = self.target_path[:]
@@ -1431,23 +1479,11 @@ class MongoEngineResource(Resource):
         """
         return False
 
-    def options(self, *args, **kwargs):
+    def html_doc(self):
         """
-        Returns a RestDoc response and adds headers with info about
-        which HTTP methods can be used on this resource.
+        Returns a HTML documentation page for this resource.
         """
-        # TODO: Add headers with info about which HTTP methods can be
-        # used on this resource.
-        return self.rest_doc()
-
-    def rest_doc(self):
-        """
-        Returns a RestDoc for this resource.
-
-        For more information about RestDoc check:
-        http://www.restdoc.org
-        """
-        return RestDoc(self).generate()
+        return HtmlDoc(self).generate(), 200
 
     def get_base_url(self):
         """

@@ -5,10 +5,15 @@ from .exceptions import UnknownField, DataInvalidType
 
 class Serializer(object):
 
+    name = None
+
     def __init__(self):
 
         self.field_cache = {}
         self.fields_cache = {}
+
+        if not self.name:
+            self.name = self.__class__.__name__
 
         def init_embedded_fields(field):
             """
