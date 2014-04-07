@@ -133,7 +133,7 @@ class MongoEngineResource(Resource):
 
         self.headers.update(extra_headers)
 
-        if request.accept_mimetypes[0][0] == 'text/html':
+        if 'text/html' in request.accept_mimetypes:
             return make_response(self.html_output(data))
         else:
             return data, status_code, self.headers
