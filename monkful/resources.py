@@ -4,7 +4,7 @@ import os
 import json
 from math import ceil
 
-from flask import current_app, request, make_response, render_template_string
+from flask import request, make_response, render_template_string
 from flask.ext.restful import Resource, abort
 from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
@@ -54,8 +54,6 @@ class MongoEngineResource(Resource):
 
     def __init__(self, *args, **kwargs):
 
-        self.init_html_output()
-
         # Instantiate the serializer
         self.serializer = self.serializer()
 
@@ -68,23 +66,7 @@ class MongoEngineResource(Resource):
 
         super(MongoEngineResource, self).__init__(*args, **kwargs)
 
-    def init_html_output(self):
-        """
-        Initiates the HTML output method.
-
-        This method will be used for requests that have the Accept
-        header `text/html`.
-        """
-
-        @current_app.api.representation('text/html')
-        def output_html(data, code, headers={}):
-
-            if isinstance(data, dict) or isinstance(data, list):
-                data = self.html_resource(data)
-
-            return make_response(data, code)
-
-    def html_resource(self, data):
+    def html_output(self, data):
         """
         Returns a nice looking HTML resource page.
 
@@ -148,8 +130,13 @@ class MongoEngineResource(Resource):
 
         Will update the `self.headers` dict with the `extra_headers`.
         """
+
         self.headers.update(extra_headers)
-        return data, status_code, self.headers
+
+        if request.accept_mimetypes[0][0] == 'text/html':
+            return make_response(self.html_output(data))
+        else:
+            return data, status_code, self.headers
 
     def authenticate(self):
         """
@@ -1485,7 +1472,7 @@ class MongoEngineResource(Resource):
         """
         Returns a HTML documentation page for this resource.
         """
-        return HtmlDoc(self).generate(), 200
+        return make_response(HtmlDoc(self).generate())
 
     def get_base_url(self):
         """

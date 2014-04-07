@@ -91,7 +91,6 @@ directory you can play around with it.
     connect('blog')
     app = Flask('my_project')
     api = restful.Api(app)
-    app.api = api
     api.add_resource(ArticleResource, '/articles/', '/articles/<id>/')
 
     if __name__ == '__main__':
