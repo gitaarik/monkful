@@ -7,6 +7,12 @@ from .exceptions import (
 )
 
 
+# The `field_order` can be used to order the fields in the way they are
+# declared in the code. It's set to 0 here, and for each `Field`
+# instance that is created, it is increased.
+field_order = 0
+
+
 class Field(object):
 
     # The type of of the `value` `deserialize()` expects to get.
@@ -38,6 +44,26 @@ class Field(object):
 
         # If this field can act as an identifier for the document
         self.identifier = kwargs.get('identifier')
+
+        self.set_field_order(kwargs.get('field_order'))
+
+    def set_field_order(self, field_order_param):
+        """
+        Sets the field order.
+
+        The `field_order` can be used to order the fields in the way
+        they are declared in the code.
+        The order automatically increases for each field declaration.
+        If you want to specify the `field_order` manually, you can do
+        that by providing the `field_order` parameters.
+        """
+        global field_order
+
+        if field_order_param:
+            self.field_order = field_order_param
+        else:
+            self.field_order = field_order
+            field_order += 1
 
     def serialize(self, value):
         """

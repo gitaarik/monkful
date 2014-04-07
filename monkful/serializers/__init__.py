@@ -1,4 +1,5 @@
 import inspect
+from collections import OrderedDict
 from .fields import Field, ListField
 from .exceptions import UnknownField, DataInvalidType
 
@@ -10,7 +11,7 @@ class Serializer(object):
     def __init__(self):
 
         self.field_cache = {}
-        self.fields_cache = {}
+        self.fields_cache = OrderedDict()
 
         if not self.name:
             self.name = self.__class__.__name__
@@ -67,7 +68,9 @@ class Serializer(object):
             field = self._field(fieldname)
 
             if allow_readonly or not field.readonly:
-                deserialized_data[fieldname] = field.deserialize(value, allow_readonly)
+                deserialized_data[fieldname] = field.deserialize(
+                    value, allow_readonly
+                )
 
         return deserialized_data
 
@@ -102,7 +105,6 @@ class Serializer(object):
             raise UnknownField(fieldname)
         else:
             return field
-
 
     def _fields(self):
         """

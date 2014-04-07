@@ -83,12 +83,12 @@
                 float: left;
             }
 
-            .description {
-                max-width: 800px;
+            table tbody td p {
+                margin: 0;
             }
 
-            .fields p {
-                margin: 0;
+            .description {
+                max-width: 800px;
             }
 
         </style>
@@ -97,8 +97,30 @@
     <body>
 
         <h1>{{ name }}</h1>
-
         <div class="description">{{ description }}</div>
+
+        <h2>URL params</h2>
+        <div class="params_info">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for param in params_info %}
+
+                        <tr>
+                            <td>{{ param.name }}</td>
+                            <td>{{ param.description }}</td>
+                        </tr>
+
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
         <h2>Base object</h2>
 
@@ -114,10 +136,10 @@
             </thead>
 
             <tbody>
-                {% for name, field in fields.items() %}
+                {% for field in fields %}
 
                     <tr>
-                        <td>{{ name }}</td>
+                        <td>{{ field.name }}</td>
                         <td>{{ field.type }}</td>
                         <td>{{ field.description }}</td>
                         <td>
@@ -156,10 +178,10 @@
                         </thead>
 
                         <tbody>
-                            {% for name, field in serializer.fields.items() %}
+                            {% for field in serializer.fields %}
 
                                 <tr>
-                                    <td>{{ name }}</td>
+                                    <td>{{ field.name }}</td>
                                     <td>{{ field.type }}</td>
                                     <td>{{ field.description }}</td>
                                     <td>
