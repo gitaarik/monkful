@@ -99,28 +99,32 @@
         <h1>{{ name }}</h1>
         <div class="description">{{ description }}</div>
 
-        <h2>URL params</h2>
-        <div class="params_info">
+        {% if params_info %}
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Description</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for param in params_info %}
+            <h2>URL params</h2>
+            <div class="params_info">
 
+                <table>
+                    <thead>
                         <tr>
-                            <td>{{ param.name }}</td>
-                            <td>{{ param.description }}</td>
+                            <th>Name</th>
+                            <th>Description</th>
                         </tr>
+                    </thead>
+                    <tbody>
+                        {% for param in params_info %}
 
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                            <tr>
+                                <td>{{ param.name }}</td>
+                                <td>{{ param.description }}</td>
+                            </tr>
+
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        {% endif %}
 
         <h2>Base object</h2>
 

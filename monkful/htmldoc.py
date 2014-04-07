@@ -125,6 +125,9 @@ class HtmlDoc(object):
         formatted to be used in a template.
         """
 
+        if not self.resource.params_info:
+            return None
+
         params_info = deepcopy(self.resource.params_info)
 
         for info in params_info:

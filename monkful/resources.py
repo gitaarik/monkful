@@ -30,6 +30,9 @@ class MongoEngineResource(Resource):
     # The description of this resource
     description = None
 
+    # Information about the URL params on this resource
+    params_info = None
+
     # The amount of items on one page of the listview of a document
     items_per_page = 100
 
