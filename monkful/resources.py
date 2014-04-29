@@ -313,7 +313,7 @@ class MongoEngineResource(Resource):
                                     self.target_document = self.target_list[i]
                                     self.target_list = None
                                     self.target_document_obj = (
-                                        self.document.comments.field.document_type
+                                        self.target_document_obj.field.document_type
                                     )
                                     break
 
