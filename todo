@@ -1,5 +1,3 @@
-test
-
 global tests:
     - support for documents at base of resource
     - extend filters test to ListFields and EmbeddedDocumentFields
