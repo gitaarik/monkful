@@ -1,8 +1,10 @@
 from __future__ import absolute_import, unicode_literals, division
 
+import os
+import json
 from math import ceil
 
-from flask import request
+from flask import request, make_response, render_template_string
 from flask.ext.restful import Resource, abort
 from werkzeug.exceptions import BadRequest
 from mongoengine import Document, fields
@@ -13,6 +15,7 @@ from .serializers import fields as serializer_fields
 from .serializers.exceptions import (
     UnknownField, ValueInvalidType, ValueInvalidFormat, DataInvalidType
 )
+from .htmldoc import HtmlDoc
 from .helpers import json_type
 from .exceptions import (
     InvalidQueryField, InvalidPageParamFormat, PageOutOfRange
@@ -21,11 +24,26 @@ from .exceptions import (
 
 class MongoEngineResource(Resource):
 
+    # The name of this resource
+    name = None
+
+    # The description of this resource
+    description = None
+
+    # Information about the URL params on this resource
+    params_info = None
+
     # The amount of items on one page of the listview of a document
     items_per_page = 100
 
     # The query param used for paging
     page_number_query_param = 'page'
+
+    # The content type this resource accepts
+    accepted_content_type = 'application/json'
+
+    # The charset this resource accepts
+    accepted_charset = 'charset=utf-8'
 
     # The headers that should be included in the response
     headers = {}
@@ -39,24 +57,72 @@ class MongoEngineResource(Resource):
         # Instantiate the serializer
         self.serializer = self.serializer()
 
+        if not self.name:
+            self.name = self.__class__.__name__
+
         # A list of reserved query params. These params can't be used
         # for filters.
         self.reserved_query_params = [self.page_number_query_param]
 
         super(MongoEngineResource, self).__init__(*args, **kwargs)
 
+    def html_output(self, data):
+        """
+        Returns a nice looking HTML resource page.
+
+        This is handy for developers that will implement the resource.
+        """
+
+        template_path = '{}'.format(
+            os.path.join(
+                os.path.dirname(__file__),
+                'templates',
+                'resource.html'
+            )
+        )
+
+        with open(template_path) as f:
+            template = f.read()
+
+        context = {
+            'name': self.name,
+            'docs_url': '{}!!'.format(self.get_base_url()),
+            'data': json.dumps(data, indent=4)
+        }
+
+        return render_template_string(template, **context)
+
     def dispatch_request(self, *args, **kwargs):
 
-        # Call authenticate for each request
-        self.authenticate()
-        self.check_request_content_type_header()
-        self._init_target(*args, **kwargs)
+        self.init_target_path(*args, **kwargs)
 
-        return super(
-            MongoEngineResource, self
-        ).dispatch_request(
-            *args, **kwargs
-        )
+        if len(self.target_path) == 1 and self.target_path[0] == '!!':
+            return self.html_doc()
+        else:
+
+            self.authenticate()
+            self.check_request_content_type_header()
+
+            self._init_target()
+
+            return super(
+                MongoEngineResource, self
+            ).dispatch_request(
+                *args, **kwargs
+            )
+
+    def init_target_path(self, *args, **kwargs):
+
+        self.target_path = []
+
+        if 'path' in kwargs:
+
+            self.target_path = kwargs['path'].split('/')
+
+            # the last item is usually an empty entry (because it splits
+            # on the last slash too) so if it's empty, pop it.
+            if self.target_path and not self.target_path[-1]:
+                self.target_path.pop()
 
     def make_response(self, data, status_code=200, extra_headers={}):
         """
@@ -64,8 +130,13 @@ class MongoEngineResource(Resource):
 
         Will update the `self.headers` dict with the `extra_headers`.
         """
+
         self.headers.update(extra_headers)
-        return data, status_code, self.headers
+
+        if 'text/html' in dict(request.accept_mimetypes).keys():
+            return make_response(self.html_output(data))
+        else:
+            return data, status_code, self.headers
 
     def authenticate(self):
         """
@@ -96,7 +167,7 @@ class MongoEngineResource(Resource):
 
         if (
             request.method in ('POST', 'PUT') and
-            content_type != 'application/json'
+            content_type != self.accepted_content_type
         ):
 
             abort(415, message=(
@@ -110,28 +181,53 @@ class MongoEngineResource(Resource):
         Checks if the charset in the request is correct.
         """
 
-        if charset != 'charset=utf-8':
+        if charset != self.accepted_charset:
             abort(415, message=(
                 "Invalid charset in Content-Type header '{}'. This resource "
                 "only supports 'charset=utf-8'."
                 .format(charset)
             ))
 
-    def _init_target(self, *args, **kwargs):
+    def request_headers(self):
+        """
+        Returns a dict of request headers that are accepted by this
+        resource.
+        """
+        return {
+            'Content-Type': {
+                'description': (
+                    "The media type of the body.\n"
+                    "\n"
+                    "Specification:\n"
+                    "\n"
+                    "http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.17"
+                ),
+                'required': True,
+            }
+        }
+
+    def response_headers(self):
+        return {
+            'Link': {
+                'description': (
+                    "The pagination links. Only returned on GET requests.\n"
+                    "\n"
+                    "Specification:\n"
+                    "\n"
+                    "http://tools.ietf.org/html/rfc5988#section-5"
+                    "\n"
+                    "This implementation is inspired by the pagination \n"
+                    "implementation of GitHub. See their docs for more info:\n"
+                    "\n"
+                    "https://developer.github.com/v3/#pagination"
+                ),
+            }
+        }
+
+    def _init_target(self):
         """
         Initiates the target document and target serializer.
         """
-
-        self.target_path = []
-
-        if 'path' in kwargs:
-
-            self.target_path = kwargs['path'].split('/')
-
-            # the last item is usually an empty entry (because it splits
-            # on the last slash too) so if it's empty, pop it.
-            if self.target_path and not self.target_path[-1]:
-                self.target_path.pop()
 
         self.target_document_obj = self.document
         target_path = self.target_path[:]
@@ -217,7 +313,7 @@ class MongoEngineResource(Resource):
                                     self.target_document = self.target_list[i]
                                     self.target_list = None
                                     self.target_document_obj = (
-                                        self.document.comments.field.document_type
+                                        self.target_document_obj.field.document_type
                                     )
                                     break
 
@@ -316,11 +412,12 @@ class MongoEngineResource(Resource):
         Applies paging to the provided `documents` and adds related
         headers to the response object.
 
-        Paging is based on the `page` param if it is given, else
-        defaults to the first page.
+        Paging is based on the value of the param of the name
+        `self.page_number_query_param` if it is given, else defaults to
+        the first page.
 
-        If the `page` param contains an invalid or an out of range
-        value, will abort with a 400 or a 404 respectively.
+        If this param contains an invalid or an out of range value, will
+        abort with a 400 or a 404 respectively.
         """
 
         def get_total_pages(documents):
@@ -356,12 +453,13 @@ class MongoEngineResource(Resource):
         """
         Returns the page of the listview that the client is requesting.
 
-        This is read from the `page` query param. If this is in invalid
-        format or out of range, will raise an `InvalidPageParamFormat`
-        or a `PageOutOfRange` error respectively.
+        This is read from the query param with the name of
+        `self.page_number_query_param`. If this is in invalid format or
+        out of range, will raise an `InvalidPageParamFormat` or a
+        `PageOutOfRange` error respectively.
         """
 
-        page = request.args.get('page', '1')
+        page = request.args.get(self.page_number_query_param, '1')
 
         # If the page param is empty just default to page 1
         if not page:
@@ -396,17 +494,7 @@ class MongoEngineResource(Resource):
             # links.
             return
 
-        def get_base_url():
-            """
-            Returns the base url to be used to create links to other
-            pages.
-            """
-            # `request.url_root` contains a slash at the end and
-            # `request.path` contains a slash at the start, so we should
-            # drop one of them.
-            return '{}{}'.format(request.url_root, request.path[1:])
-
-        base_url = get_base_url()
+        base_url = self.get_base_url()
         default_params = request.args.to_dict()
         paging_links = PagingLinks(base_url, default_params)
 
@@ -1379,3 +1467,24 @@ class MongoEngineResource(Resource):
         indicates where the exception was raised.
         """
         return False
+
+    def html_doc(self):
+        """
+        Returns a HTML documentation page for this resource.
+        """
+        return make_response(HtmlDoc(self).generate())
+
+    def get_base_url(self):
+        """
+        Returns the base URL for this resource.
+        """
+        # `request.url_root` contains a slash at the end and
+        # `request.path` contains a slash at the start, so we should
+        # drop one of them.
+        return '{}{}'.format(request.url_root, self.get_base_path())
+
+    def get_base_path(self):
+        """
+        Returns the base URL path of this resource.
+        """
+        return request.path[1:]

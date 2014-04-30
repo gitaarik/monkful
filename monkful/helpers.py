@@ -5,11 +5,11 @@ def json_type(var):
 
     The return value will be one of the following:
 
-        Number
-        String
-        Boolean
-        Array
-        Object
+        number
+        string
+        boolean
+        array
+        object
         null
         unknown
 
@@ -19,15 +19,15 @@ def json_type(var):
         var = type(var)
 
     if var in(unicode, str):
-        return 'String'
+        return 'string'
     elif var in(int, long, float):
-        return 'Number'
+        return 'number'
     elif var is bool:
-        return 'Boolean'
+        return 'boolean'
     elif var is list:
-        return 'Array'
+        return 'array'
     elif var is dict:
-        return 'Object'
+        return 'object'
     elif var is None:
         return 'null'
     else:

@@ -7,6 +7,12 @@ from .exceptions import (
 )
 
 
+# The `field_order` can be used to order the fields in the way they are
+# declared in the code. It's set to 0 here, and for each `Field`
+# instance that is created, it is increased.
+field_order = 0
+
+
 class Field(object):
 
     # The type of of the `value` `deserialize()` expects to get.
@@ -27,6 +33,9 @@ class Field(object):
         # If this field is a master field
         self.master = False
 
+        # Description of the field
+        self.description = kwargs.get('description')
+
         # If this is a read only field
         self.readonly = kwargs.get('readonly')
 
@@ -35,6 +44,26 @@ class Field(object):
 
         # If this field can act as an identifier for the document
         self.identifier = kwargs.get('identifier')
+
+        self.set_field_order(kwargs.get('field_order'))
+
+    def set_field_order(self, field_order_param):
+        """
+        Sets the field order.
+
+        The `field_order` can be used to order the fields in the way
+        they are declared in the code.
+        The order automatically increases for each field declaration.
+        If you want to specify the `field_order` manually, you can do
+        that by providing the `field_order` parameters.
+        """
+        global field_order
+
+        if field_order_param:
+            self.field_order = field_order_param
+        else:
+            self.field_order = field_order
+            field_order += 1
 
     def serialize(self, value):
         """
@@ -285,12 +314,16 @@ class DynamicField(Field):
     A free form field which can hold any kind of value. Doesn't do any
     serializing/deserializing on the data.
     """
-    pass
+
+    deserialize_type = None
+
 
 class ReferenceField(Field):
     """
     A field in which to store a reference id.
     """
+
+    deserialize_type = unicode
 
     def _serialize(self, value):
         return unicode(value)
