@@ -136,17 +136,17 @@ resource to be based on, and the Serializer that should be used to parse the
 data between the API and the MongoEngine document. This would look something
 like this:
 
-    **resources.py**
+**resources.py**
 
-    ```python
-    from monkful.resources import MongoEngineResource
-    from documents import MyMongoEngineDocument
-    from serializers import MySerializer
+```python
+from monkful.resources import MongoEngineResource
+from documents import MyMongoEngineDocument
+from serializers import MySerializer
 
-    class MyResource(MongoEngineResource):
-        document = MyMongoEngineDocument
-        serializer = MySerializer
-    ```
+class MyResource(MongoEngineResource):
+    document = MyMongoEngineDocument
+    serializer = MySerializer
+```
 
 Now when you have set up your `MyMongoEngineDocument` and `MySerializer`, and
 you've added the resource to the Flask project, you should already have a
